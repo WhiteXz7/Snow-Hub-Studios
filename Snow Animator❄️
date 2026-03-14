@@ -1,46 +1,36 @@
 --[[
-    ╔══════════════════════════════════════════════╗
-    ║       Snow Hub Studios❄️ - PARTE 1/7        ║
-    ║         Core Services & Save System          ║
-    ╚══════════════════════════════════════════════╝
+    Snow Hub Studios - PARTE 1/7
+    Core & Save System
 ]]
 
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
-local HttpService = game:GetService("HttpService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local CoreGui = game:GetService("CoreGui")
-local Selection = game:GetService("Selection")
+Players = game:GetService("Players")
+RunService = game:GetService("RunService")
+TweenService = game:GetService("TweenService")
+UserInputService = game:GetService("UserInputService")
+HttpService = game:GetService("HttpService")
+ReplicatedStorage = game:GetService("ReplicatedStorage")
+CoreGui = game:GetService("CoreGui")
+Selection = nil
+pcall(function() Selection = game:GetService("Selection") end)
+LocalPlayer = Players.LocalPlayer
+Mouse = LocalPlayer:GetMouse()
+pcall(function()
+    if CoreGui:FindFirstChild("SnowHubStudios") then
+        CoreGui:FindFirstChild("SnowHubStudios"):Destroy()
+    end
+end)
 
-local LocalPlayer = Players.LocalPlayer
-local Mouse = LocalPlayer:GetMouse()
-
-if CoreGui:FindFirstChild("SnowHubStudios") then
-    CoreGui:FindFirstChild("SnowHubStudios"):Destroy()
-end
-
--- ============================================
--- SAVE SYSTEM
--- ============================================
-local SaveSystem = {}
+SaveSystem = {}
 SaveSystem.__index = SaveSystem
-
 function SaveSystem.new()
     local self = setmetatable({}, SaveSystem)
     self.Slots = {}
     for i = 1, 10 do
-        self.Slots[i] = {
-            Name = "",
-            Data = nil,
-            Exists = false
-        }
+        self.Slots[i] = {Name = "", Data = nil, Exists = false}
     end
     self:Load()
     return self
 end
-
 function SaveSystem:GetFolder()
     local f = ReplicatedStorage:FindFirstChild("SnowAnimSaves")
     if not f then
@@ -50,7 +40,6 @@ function SaveSystem:GetFolder()
     end
     return f
 end
-
 function SaveSystem:Save()
     pcall(function()
         local folder = self:GetFolder()
@@ -61,40 +50,22 @@ function SaveSystem:Save()
                 sf.Name = "S"..i
                 sf.Parent = folder
             end
-            
             local nv = sf:FindFirstChild("N")
-            if not nv then
-                nv = Instance.new("StringValue")
-                nv.Name = "N"
-                nv.Parent = sf
-            end
+            if not nv then nv = Instance.new("StringValue") nv.Name = "N" nv.Parent = sf end
             nv.Value = self.Slots[i].Name or ""
-            
             local dv = sf:FindFirstChild("D")
-            if not dv then
-                dv = Instance.new("StringValue")
-                dv.Name = "D"
-                dv.Parent = sf
-            end
+            if not dv then dv = Instance.new("StringValue") dv.Name = "D" dv.Parent = sf end
             if self.Slots[i].Data then
-                dv.Value = HttpService:JSONEncode(
-                    self.Slots[i].Data
-                )
+                dv.Value = HttpService:JSONEncode(self.Slots[i].Data)
             else
                 dv.Value = ""
             end
-            
             local ev = sf:FindFirstChild("E")
-            if not ev then
-                ev = Instance.new("BoolValue")
-                ev.Name = "E"
-                ev.Parent = sf
-            end
+            if not ev then ev = Instance.new("BoolValue") ev.Name = "E" ev.Parent = sf end
             ev.Value = self.Slots[i].Exists
         end
     end)
 end
-
 function SaveSystem:Load()
     pcall(function()
         local folder = self:GetFolder()
@@ -104,803 +75,366 @@ function SaveSystem:Load()
                 local nv = sf:FindFirstChild("N")
                 local dv = sf:FindFirstChild("D")
                 local ev = sf:FindFirstChild("E")
-                if nv then
-                    self.Slots[i].Name = nv.Value
-                end
+                if nv then self.Slots[i].Name = nv.Value end
                 if dv and dv.Value ~= "" then
-                    self.Slots[i].Data = 
-                        HttpService:JSONDecode(dv.Value)
+                    self.Slots[i].Data = HttpService:JSONDecode(dv.Value)
                 end
-                if ev then
-                    self.Slots[i].Exists = ev.Value
-                end
+                if ev then self.Slots[i].Exists = ev.Value end
             end
         end
     end)
 end
-
 function SaveSystem:SaveSlot(idx, name, data)
-    self.Slots[idx] = {
-        Name = name,
-        Data = data,
-        Exists = true
-    }
+    self.Slots[idx] = {Name = name, Data = data, Exists = true}
     self:Save()
 end
-
 function SaveSystem:DeleteSlot(idx)
-    self.Slots[idx] = {
-        Name = "",
-        Data = nil,
-        Exists = false
-    }
+    self.Slots[idx] = {Name = "", Data = nil, Exists = false}
     self:Save()
 end
+function SaveSystem:GetSlot(idx) return self.Slots[idx] end
+saveSystem = SaveSystem.new()
 
-function SaveSystem:GetSlot(idx)
-    return self.Slots[idx]
-end
-
-local saveSystem = SaveSystem.new()
-
--- ============================================
--- UI HELPERS
--- ============================================
-local UI = {}
-
+UI = {}
 function UI.Create(class, props)
-    local inst = Instance.new(class)
-    for k, v in pairs(props) do
-        if k ~= "Parent" then
-            pcall(function()
-                inst[k] = v
-            end)
+    local ok, inst = pcall(function()
+        local i = Instance.new(class)
+        for k, v in pairs(props) do
+            if k ~= "Parent" then pcall(function() i[k] = v end) end
         end
-    end
-    if props.Parent then
-        inst.Parent = props.Parent
-    end
-    return inst
+        if props.Parent then i.Parent = props.Parent end
+        return i
+    end)
+    if ok and inst then return inst end
+    return nil
 end
-
 function UI.Corner(p, r)
-    return UI.Create("UICorner", {
-        CornerRadius = UDim.new(0, r or 8),
-        Parent = p
-    })
+    if not p then return end
+    return UI.Create("UICorner", {CornerRadius = UDim.new(0, r or 8), Parent = p})
 end
-
 function UI.Stroke(p, c, t)
-    return UI.Create("UIStroke", {
-        Color = c or Color3.fromRGB(100,150,255),
-        Thickness = t or 1,
-        Parent = p
-    })
+    if not p then return end
+    return UI.Create("UIStroke", {Color = c or Color3.fromRGB(100,150,255), Thickness = t or 1, Parent = p})
 end
-
 function UI.Grad(p, c1, c2, rot)
-    return UI.Create("UIGradient", {
-        Color = ColorSequence.new(c1, c2),
-        Rotation = rot or 90,
-        Parent = p
-    })
+    if not p then return end
+    return UI.Create("UIGradient", {Color = ColorSequence.new(c1, c2), Rotation = rot or 90, Parent = p})
 end
-
 function UI.Pad(p, t, b, l, r)
-    return UI.Create("UIPadding", {
-        PaddingTop = UDim.new(0, t or 4),
-        PaddingBottom = UDim.new(0, b or 4),
-        PaddingLeft = UDim.new(0, l or 4),
-        PaddingRight = UDim.new(0, r or 4),
-        Parent = p
-    })
+    if not p then return end
+    return UI.Create("UIPadding", {PaddingTop=UDim.new(0,t or 4), PaddingBottom=UDim.new(0,b or 4), PaddingLeft=UDim.new(0,l or 4), PaddingRight=UDim.new(0,r or 4), Parent = p})
 end
 
--- ============================================
--- THEME
--- ============================================
-local T = {
-    BG = Color3.fromRGB(20, 22, 30),
-    SF = Color3.fromRGB(30, 33, 45),
-    SL = Color3.fromRGB(40, 44, 60),
-    PR = Color3.fromRGB(80, 140, 255),
-    PD = Color3.fromRGB(50, 100, 200),
-    AC = Color3.fromRGB(100, 200, 255),
-    TX = Color3.fromRGB(220, 225, 240),
-    TD = Color3.fromRGB(140, 145, 165),
-    OK = Color3.fromRGB(80, 200, 120),
-    WN = Color3.fromRGB(255, 180, 50),
-    DN = Color3.fromRGB(255, 80, 80),
-    SN = Color3.fromRGB(200, 220, 255),
-    TL = Color3.fromRGB(25, 28, 38),
-    KF = Color3.fromRGB(255, 200, 50),
-    KS = Color3.fromRGB(255, 120, 50),
-    PU = Color3.fromRGB(150, 100, 255),
-    CY = Color3.fromRGB(0, 200, 200),
-    PK = Color3.fromRGB(255, 100, 180),
+T = {
+    BG = Color3.fromRGB(20,22,30),
+    SF = Color3.fromRGB(30,33,45),
+    SL = Color3.fromRGB(40,44,60),
+    PR = Color3.fromRGB(80,140,255),
+    PD = Color3.fromRGB(50,100,200),
+    AC = Color3.fromRGB(100,200,255),
+    TX = Color3.fromRGB(220,225,240),
+    TD = Color3.fromRGB(140,145,165),
+    OK = Color3.fromRGB(80,200,120),
+    WN = Color3.fromRGB(255,180,50),
+    DN = Color3.fromRGB(255,80,80),
+    SN = Color3.fromRGB(200,220,255),
+    TL = Color3.fromRGB(25,28,38),
+    KF = Color3.fromRGB(255,200,50),
+    KS = Color3.fromRGB(255,120,50),
+    PU = Color3.fromRGB(150,100,255),
+    CY = Color3.fromRGB(0,200,200),
 }
-
-print("❄️ Part 1/7 Loaded - Core & Save System")
+print("P1 OK")
 
 --[[
-    ╔══════════════════════════════════════════════╗
-    ║       Snow Hub Studios❄️ - PARTE 2/7        ║
-    ║        Animation Engine (CORRIGIDA)          ║
-    ╚══════════════════════════════════════════════╝
+    Snow Hub Studios - PARTE 2/7
+    Animation Engine
 ]]
 
-local Engine = {}
-Engine.__index = Engine
-
-function Engine.new()
-    local self = setmetatable({}, Engine)
-    self.Keyframes = {}
-    self.CurrentTime = 0
-    self.FPS = 60
-    self.IsPlaying = false
-    self.IsLooping = false
-    self.Speed = 1
-    self.Target = nil
-    self.AllJoints = {}
-    self.AnimType = "Core"
-    self.InterpMode = "Linear"
-    self.ViewMode = "Global"
-    self.UndoStack = {}
-    self.RedoStack = {}
-    self.Clipboard = nil
-    self.ExportCount = 0
-    self.AutoKey = false
-    self.OnionSkin = false
-    self.MirrorMode = false
-    self.MirrorAxis = "X"
-    self.SnapGrid = false
-    self.GridSize = 0.5
-    self.Markers = {}
-    self.EasingDir = "InOut"
-    self.PlayConn = nil
-    
-    self.AnimTypes = {
-        "Core","Idle","Walk","Run","Jump",
-        "Climb","Fall","FreeFall","Swim",
-        "SwimIdle","Seated","Action1",
-        "Action2","Action3","Action4",
-        "Emote","Dance","Dance2","Dance3",
-        "Laugh","Cheer","Wave","Point",
-        "Custom1","Custom2","Custom3"
-    }
-    
-    self.InterpModes = {
-        "Linear","Cubic","Bounce","Elastic",
-        "Back","Quad","Quart","Quint",
-        "Sine","Expo","Circ","Constant"
-    }
-    
-    self.EasingDirs = {"In","Out","InOut"}
-    
-    return self
+EC = {}
+EC.__index = EC
+function EC.new()
+    local s = setmetatable({}, EC)
+    s.Keyframes = {}
+    s.CurrentTime = 0
+    s.FPS = 60
+    s.IsPlaying = false
+    s.IsLooping = false
+    s.Speed = 1
+    s.Target = nil
+    s.AllJoints = {}
+    s.AnimType = "Core"
+    s.InterpMode = "Linear"
+    s.ViewMode = "Global"
+    s.UndoStack = {}
+    s.RedoStack = {}
+    s.Clipboard = nil
+    s.ExportCount = 0
+    s.AutoKey = false
+    s.OnionSkin = false
+    s.MirrorAxis = "X"
+    s.SnapGrid = false
+    s.GridSize = 0.5
+    s.Markers = {}
+    s.EasingDir = "InOut"
+    s.PlayConn = nil
+    s.AnimTypes = {"Core","Idle","Walk","Run","Jump","Climb","Fall","FreeFall","Swim","SwimIdle","Seated","Action1","Action2","Action3","Action4","Emote","Dance","Dance2","Dance3","Laugh","Cheer","Wave","Point","Custom1","Custom2","Custom3"}
+    s.InterpModes = {"Linear","Cubic","Bounce","Elastic","Back","Quad","Quart","Quint","Sine","Expo","Circ","Constant"}
+    s.EasingDirs = {"In","Out","InOut"}
+    return s
 end
-
-function Engine:PushUndo()
-    local st = {
-        KF = self:CopyKFs(),
-        Time = self.CurrentTime,
-        Spd = self.Speed
-    }
-    table.insert(self.UndoStack, st)
-    if #self.UndoStack > 80 then
-        table.remove(self.UndoStack, 1)
-    end
+function EC:PushUndo()
+    table.insert(self.UndoStack, {KF=self:CopyKFs(), Time=self.CurrentTime, Spd=self.Speed})
+    if #self.UndoStack > 80 then table.remove(self.UndoStack, 1) end
     self.RedoStack = {}
 end
-
-function Engine:Undo()
+function EC:Undo()
     if #self.UndoStack == 0 then return end
-    table.insert(self.RedoStack, {
-        KF = self:CopyKFs(),
-        Time = self.CurrentTime,
-        Spd = self.Speed
-    })
+    table.insert(self.RedoStack, {KF=self:CopyKFs(), Time=self.CurrentTime, Spd=self.Speed})
     local s = table.remove(self.UndoStack)
     self.Keyframes = s.KF
     self.CurrentTime = s.Time
     self.Speed = s.Spd
 end
-
-function Engine:Redo()
+function EC:Redo()
     if #self.RedoStack == 0 then return end
-    table.insert(self.UndoStack, {
-        KF = self:CopyKFs(),
-        Time = self.CurrentTime,
-        Spd = self.Speed
-    })
+    table.insert(self.UndoStack, {KF=self:CopyKFs(), Time=self.CurrentTime, Spd=self.Speed})
     local s = table.remove(self.RedoStack)
     self.Keyframes = s.KF
     self.CurrentTime = s.Time
     self.Speed = s.Spd
 end
-
-function Engine:CopyKFs()
+function EC:CopyKFs()
     local c = {}
     for i, kf in ipairs(self.Keyframes) do
-        local copy = {time = kf.time, joints = {}}
+        local cp = {time=kf.time, joints={}}
         for n, d in pairs(kf.joints) do
             local dd = {}
-            for k, v in pairs(d) do
-                dd[k] = v
-            end
-            copy.joints[n] = dd
+            for k, v in pairs(d) do dd[k] = v end
+            cp.joints[n] = dd
         end
-        c[i] = copy
+        c[i] = cp
     end
     return c
 end
-
-function Engine:ScanTarget(target)
+function EC:JValid(j)
+    if not j or not j.Inst then return false end
+    local ok, r = pcall(function() return j.Inst.Parent ~= nil end)
+    return ok and r
+end
+function EC:ScanTarget(target)
     self.AllJoints = {}
     self.Target = target
     if not target then return end
-    
-    local motorPart1s = {}
-    
-    -- Motor6D (Rigs R6/R15/Custom)
+    local mp = {}
     pcall(function()
         for _, ch in ipairs(target:GetDescendants()) do
             pcall(function()
                 if ch:IsA("Motor6D") then
-                    table.insert(self.AllJoints, {
-                        Type = "Motor6D",
-                        Inst = ch,
-                        Name = ch.Name,
-                        OC0 = ch.C0,
-                        OC1 = ch.C1
-                    })
-                    if ch.Part1 then
-                        motorPart1s[ch.Part1] = true
-                    end
+                    table.insert(self.AllJoints, {Type="Motor6D", Inst=ch, Name=ch.Name, OC0=ch.C0, OC1=ch.C1})
+                    if ch.Part1 then mp[ch.Part1] = true end
                 end
             end)
         end
     end)
-    
-    -- BaseParts (que não são Part1 de Motor6D)
     pcall(function()
         for _, ch in ipairs(target:GetDescendants()) do
             pcall(function()
-                if ch:IsA("BasePart") and
-                   not ch:IsA("Terrain") and
-                   not motorPart1s[ch] then
-                    table.insert(self.AllJoints, {
-                        Type = "Part",
-                        Inst = ch,
-                        Name = ch.Name .. "_P",
-                        OCF = ch.CFrame
-                    })
+                if ch:IsA("BasePart") and not ch:IsA("Terrain") and not mp[ch] then
+                    table.insert(self.AllJoints, {Type="Part", Inst=ch, Name=ch.Name.."_P", OCF=ch.CFrame})
                 end
             end)
         end
     end)
-    
-    -- Se o target é uma BasePart solta
     pcall(function()
-        if target:IsA("BasePart") and
-           not target:IsA("Terrain") then
+        if target:IsA("BasePart") and not target:IsA("Terrain") then
             local found = false
-            for _, j in ipairs(self.AllJoints) do
-                if j.Inst == target then
-                    found = true
-                    break
-                end
-            end
+            for _, j in ipairs(self.AllJoints) do if j.Inst == target then found = true end end
             if not found then
-                table.insert(self.AllJoints, {
-                    Type = "Part",
-                    Inst = target,
-                    Name = target.Name .. "_P",
-                    OCF = target.CFrame
-                })
+                table.insert(self.AllJoints, {Type="Part", Inst=target, Name=target.Name.."_P", OCF=target.CFrame})
             end
         end
     end)
-    
-    -- GuiObjects
     pcall(function()
         for _, ch in ipairs(target:GetDescendants()) do
             pcall(function()
                 if ch:IsA("GuiObject") then
-                    table.insert(self.AllJoints, {
-                        Type = "GUI",
-                        Inst = ch,
-                        Name = ch.Name .. "_G",
-                        OPos = ch.Position,
-                        OSize = ch.Size,
-                        ORot = ch.Rotation
-                    })
+                    table.insert(self.AllJoints, {Type="GUI", Inst=ch, Name=ch.Name.."_G", OPos=ch.Position, OSize=ch.Size, ORot=ch.Rotation})
                 end
             end)
         end
     end)
-    
-    -- Effects
     pcall(function()
         for _, ch in ipairs(target:GetDescendants()) do
             pcall(function()
-                if ch:IsA("ParticleEmitter") or
-                   ch:IsA("PointLight") or
-                   ch:IsA("SpotLight") or
-                   ch:IsA("Fire") or
-                   ch:IsA("Smoke") then
-                    table.insert(self.AllJoints, {
-                        Type = "FX",
-                        Inst = ch,
-                        Name = ch.Name .. "_FX",
-                        CN = ch.ClassName
-                    })
+                if ch:IsA("ParticleEmitter") or ch:IsA("PointLight") or ch:IsA("SpotLight") or ch:IsA("Fire") or ch:IsA("Smoke") then
+                    table.insert(self.AllJoints, {Type="FX", Inst=ch, Name=ch.Name.."_FX"})
                 end
             end)
         end
     end)
 end
-
-function Engine:IsJointValid(j)
-    if not j then return false end
-    if not j.Inst then return false end
-    local ok, result = pcall(function()
-        return j.Inst.Parent ~= nil
-    end)
-    return ok and result
-end
-
-function Engine:AddKeyframe()
+function EC:AddKeyframe()
     self:PushUndo()
-    local kf = {
-        time = self.CurrentTime,
-        joints = {}
-    }
-    
+    local kf = {time=self.CurrentTime, joints={}}
     for _, j in ipairs(self.AllJoints) do
-        if self:IsJointValid(j) then
+        if self:JValid(j) then
             pcall(function()
                 if j.Type == "Motor6D" then
-                    kf.joints[j.Name] = {
-                        CF = j.Inst.C0,
-                        ES = self.InterpMode,
-                        ED = self.EasingDir
-                    }
+                    kf.joints[j.Name] = {CF=j.Inst.C0, ES=self.InterpMode, ED=self.EasingDir}
                 elseif j.Type == "Part" then
-                    kf.joints[j.Name] = {
-                        CF = j.Inst.CFrame,
-                        SZ = j.Inst.Size,
-                        TR = j.Inst.Transparency,
-                        CL = j.Inst.Color,
-                        ES = self.InterpMode,
-                        ED = self.EasingDir
-                    }
+                    kf.joints[j.Name] = {CF=j.Inst.CFrame, SZ=j.Inst.Size, TR=j.Inst.Transparency, CL=j.Inst.Color, ES=self.InterpMode, ED=self.EasingDir}
                 elseif j.Type == "GUI" then
-                    kf.joints[j.Name] = {
-                        Pos = j.Inst.Position,
-                        Sz = j.Inst.Size,
-                        Rot = j.Inst.Rotation,
-                        Tr = j.Inst.BackgroundTransparency,
-                        ES = self.InterpMode,
-                        ED = self.EasingDir
-                    }
+                    kf.joints[j.Name] = {Pos=j.Inst.Position, Sz=j.Inst.Size, Rot=j.Inst.Rotation, Tr=j.Inst.BackgroundTransparency, ES=self.InterpMode, ED=self.EasingDir}
                 elseif j.Type == "FX" then
-                    local d = {
-                        ES = self.InterpMode,
-                        ED = self.EasingDir
-                    }
-                    if j.Inst:IsA("ParticleEmitter") then
-                        d.Rate = j.Inst.Rate
-                    end
-                    if j.Inst:IsA("PointLight") or
-                       j.Inst:IsA("SpotLight") then
-                        d.Bright = j.Inst.Brightness
-                        d.Range = j.Inst.Range
-                    end
+                    local d = {ES=self.InterpMode, ED=self.EasingDir}
+                    pcall(function() if j.Inst:IsA("ParticleEmitter") then d.Rate = j.Inst.Rate end end)
+                    pcall(function() if j.Inst:IsA("PointLight") or j.Inst:IsA("SpotLight") then d.Bright=j.Inst.Brightness d.Range=j.Inst.Range end end)
                     kf.joints[j.Name] = d
                 end
             end)
         end
     end
-    
-    -- Remove keyframe no mesmo tempo
-    local newList = {}
-    for _, existingKF in ipairs(self.Keyframes) do
-        if math.abs(existingKF.time - self.CurrentTime) >= 0.001 then
-            table.insert(newList, existingKF)
-        end
+    local nl = {}
+    for _, ek in ipairs(self.Keyframes) do
+        if math.abs(ek.time - self.CurrentTime) >= 0.001 then table.insert(nl, ek) end
     end
-    self.Keyframes = newList
-    
+    self.Keyframes = nl
     table.insert(self.Keyframes, kf)
-    table.sort(self.Keyframes, function(a, b)
-        return a.time < b.time
-    end)
+    table.sort(self.Keyframes, function(a,b) return a.time < b.time end)
 end
-
-function Engine:RemoveKFAt(time)
+function EC:RemoveKFAt(time)
     self:PushUndo()
-    local newList = {}
+    local nl = {}
     for _, kf in ipairs(self.Keyframes) do
-        if math.abs(kf.time - time) >= 0.05 then
-            table.insert(newList, kf)
-        end
+        if math.abs(kf.time - time) >= 0.05 then table.insert(nl, kf) end
     end
-    self.Keyframes = newList
+    self.Keyframes = nl
 end
-
-function Engine:GetMaxTime()
+function EC:GetMaxTime()
     local mx = 0
-    for _, kf in ipairs(self.Keyframes) do
-        if kf.time > mx then mx = kf.time end
-    end
+    for _, kf in ipairs(self.Keyframes) do if kf.time > mx then mx = kf.time end end
     return math.max(mx, 0.1)
 end
-
-function Engine:ApplyEasing(a, style, dir)
-    if not style or style == "Linear" then
-        return a
-    end
-    if style == "Constant" then
-        if a >= 1 then return 1 end
-        return 0
-    end
-    
+function EC.BounceOut(t)
+    if t < 1/2.75 then return 7.5625*t*t
+    elseif t < 2/2.75 then t=t-1.5/2.75 return 7.5625*t*t+0.75
+    elseif t < 2.5/2.75 then t=t-2.25/2.75 return 7.5625*t*t+0.9375
+    else t=t-2.625/2.75 return 7.5625*t*t+0.984375 end
+end
+function EC:ApplyEasing(a, style, dir)
+    if not style or style == "Linear" then return a end
+    if style == "Constant" then return a >= 1 and 1 or 0 end
     local function eIn(t, s)
-        if s == "Quad" then return t * t end
-        if s == "Cubic" then return t * t * t end
-        if s == "Quart" then return t ^ 4 end
-        if s == "Quint" then return t ^ 5 end
-        if s == "Sine" then
-            return 1 - math.cos(t * math.pi / 2)
-        end
-        if s == "Expo" then
-            if t == 0 then return 0 end
-            return math.pow(2, 10 * (t - 1))
-        end
-        if s == "Circ" then
-            return 1 - math.sqrt(1 - t * t)
-        end
-        if s == "Back" then
-            local c = 1.70158
-            return t * t * ((c + 1) * t - c)
-        end
-        if s == "Elastic" then
-            if t == 0 or t == 1 then return t end
-            return -math.pow(2, 10 * (t - 1)) *
-                math.sin((t - 1.1) * 5 * math.pi)
-        end
-        if s == "Bounce" then
-            return 1 - Engine.BounceOut(1 - t)
-        end
+        if s=="Quad" then return t*t end
+        if s=="Cubic" then return t*t*t end
+        if s=="Quart" then return t^4 end
+        if s=="Quint" then return t^5 end
+        if s=="Sine" then return 1-math.cos(t*math.pi/2) end
+        if s=="Expo" then return t==0 and 0 or math.pow(2,10*(t-1)) end
+        if s=="Circ" then return 1-math.sqrt(math.abs(1-t*t)) end
+        if s=="Back" then local c=1.70158 return t*t*((c+1)*t-c) end
+        if s=="Elastic" then if t==0 or t==1 then return t end return -math.pow(2,10*(t-1))*math.sin((t-1.1)*5*math.pi) end
+        if s=="Bounce" then return 1-EC.BounceOut(1-t) end
         return t
     end
-    
     local function eOut(t, s)
-        if s == "Bounce" then
-            return Engine.BounceOut(t)
-        end
-        return 1 - eIn(1 - t, s)
+        if s=="Bounce" then return EC.BounceOut(t) end
+        return 1-eIn(1-t, s)
     end
-    
-    if not dir then dir = "InOut" end
-    
-    if dir == "In" then
-        return eIn(a, style)
-    elseif dir == "Out" then
-        return eOut(a, style)
+    dir = dir or "InOut"
+    if dir=="In" then return eIn(a, style)
+    elseif dir=="Out" then return eOut(a, style)
     else
-        if a < 0.5 then
-            return eIn(a * 2, style) / 2
-        else
-            return 0.5 + eOut((a - 0.5) * 2, style) / 2
-        end
+        if a < 0.5 then return eIn(a*2, style)/2
+        else return 0.5+eOut((a-0.5)*2, style)/2 end
     end
 end
-
-function Engine.BounceOut(t)
-    if t < 1 / 2.75 then
-        return 7.5625 * t * t
-    elseif t < 2 / 2.75 then
-        t = t - 1.5 / 2.75
-        return 7.5625 * t * t + 0.75
-    elseif t < 2.5 / 2.75 then
-        t = t - 2.25 / 2.75
-        return 7.5625 * t * t + 0.9375
-    else
-        t = t - 2.625 / 2.75
-        return 7.5625 * t * t + 0.984375
-    end
+function EC:LerpUD2(a,b,t)
+    local ok,r = pcall(function() return UDim2.new(a.X.Scale+(b.X.Scale-a.X.Scale)*t, a.X.Offset+(b.X.Offset-a.X.Offset)*t, a.Y.Scale+(b.Y.Scale-a.Y.Scale)*t, a.Y.Offset+(b.Y.Offset-a.Y.Offset)*t) end)
+    return ok and r or a
 end
-
-function Engine:LerpUD2(a, b, t)
-    local ok, result = pcall(function()
-        return UDim2.new(
-            a.X.Scale + (b.X.Scale - a.X.Scale) * t,
-            a.X.Offset + (b.X.Offset - a.X.Offset) * t,
-            a.Y.Scale + (b.Y.Scale - a.Y.Scale) * t,
-            a.Y.Offset + (b.Y.Offset - a.Y.Offset) * t
-        )
-    end)
-    if ok then return result end
-    return a
+function EC:LerpC3(a,b,t)
+    local ok,r = pcall(function() return Color3.new(a.R+(b.R-a.R)*t, a.G+(b.G-a.G)*t, a.B+(b.B-a.B)*t) end)
+    return ok and r or a
 end
+function EC:LerpNum(a,b,t) if a==nil or b==nil then return a end return a+(b-a)*t end
+function EC:LerpCF(a,b,t) local ok,r = pcall(function() return a:Lerp(b,t) end) return ok and r or a end
+function EC:LerpV3(a,b,t) local ok,r = pcall(function() return a:Lerp(b,t) end) return ok and r or a end
 
-function Engine:LerpC3(a, b, t)
-    local ok, result = pcall(function()
-        return Color3.new(
-            a.R + (b.R - a.R) * t,
-            a.G + (b.G - a.G) * t,
-            a.B + (b.B - a.B) * t
-        )
-    end)
-    if ok then return result end
-    return a
-end
-
-function Engine:LerpNum(a, b, t)
-    if a == nil or b == nil then return a end
-    return a + (b - a) * t
-end
-
-function Engine:LerpCF(a, b, t)
-    local ok, result = pcall(function()
-        return a:Lerp(b, t)
-    end)
-    if ok then return result end
-    return a
-end
-
-function Engine:LerpV3(a, b, t)
-    local ok, result = pcall(function()
-        return a:Lerp(b, t)
-    end)
-    if ok then return result end
-    return a
-end
-
-function Engine:Evaluate(time)
-    if #self.Keyframes == 0 then
-        return nil
-    end
-    if #self.Keyframes == 1 then
-        return self.Keyframes[1]
-    end
-    
-    -- Achar prev e next keyframe
-    local prev = nil
-    local nxt = nil
-    
+function EC:Evaluate(time)
+    if #self.Keyframes == 0 then return nil end
+    if #self.Keyframes == 1 then return self.Keyframes[1] end
+    local prev, nxt = nil, nil
     for i = 1, #self.Keyframes do
         local kf = self.Keyframes[i]
-        if kf.time <= time then
-            prev = kf
-        end
-        if kf.time >= time and nxt == nil then
-            nxt = kf
-        end
+        if kf.time <= time then prev = kf end
+        if kf.time >= time and nxt == nil then nxt = kf end
     end
-    
-    if prev == nil then
-        prev = self.Keyframes[1]
-    end
-    if nxt == nil then
-        nxt = self.Keyframes[#self.Keyframes]
-    end
-    
-    -- Se são o mesmo keyframe
-    if prev == nxt then
-        return prev
-    end
-    if prev.time == nxt.time then
-        return prev
-    end
-    
-    -- Calcular alpha
+    if not prev then prev = self.Keyframes[1] end
+    if not nxt then nxt = self.Keyframes[#self.Keyframes] end
+    if prev == nxt then return prev end
     local diff = nxt.time - prev.time
-    if diff <= 0 then
-        return prev
-    end
-    
-    local rawAlpha = (time - prev.time) / diff
-    rawAlpha = math.clamp(rawAlpha, 0, 1)
-    
-    -- Resultado interpolado
-    local result = {time = time, joints = {}}
-    
-    -- Coletar todos os nomes de joints
-    local allNames = {}
-    for jn, _ in pairs(prev.joints) do
-        allNames[jn] = true
-    end
-    for jn, _ in pairs(nxt.joints) do
-        allNames[jn] = true
-    end
-    
-    for jn, _ in pairs(allNames) do
+    if diff <= 0 then return prev end
+    local raw = math.clamp((time - prev.time)/diff, 0, 1)
+    local result = {time=time, joints={}}
+    local allN = {}
+    for jn,_ in pairs(prev.joints) do allN[jn] = true end
+    for jn,_ in pairs(nxt.joints) do allN[jn] = true end
+    for jn,_ in pairs(allN) do
         local pd = prev.joints[jn]
         local nd = nxt.joints[jn]
-        
-        -- Se só existe em um dos dois
-        if pd and not nd then
-            result.joints[jn] = pd
-        elseif nd and not pd then
-            result.joints[jn] = nd
+        if pd and not nd then result.joints[jn] = pd
+        elseif nd and not pd then result.joints[jn] = nd
         elseif pd and nd then
-            -- Interpolar
-            local easingStyle = nd.ES or "Linear"
-            local easingDir = nd.ED or "InOut"
-            local ea = self:ApplyEasing(
-                rawAlpha, easingStyle, easingDir
-            )
-            
-            local interp = {
-                ES = easingStyle,
-                ED = easingDir
-            }
-            
-            -- CFrame
-            if pd.CF and nd.CF then
-                interp.CF = self:LerpCF(pd.CF, nd.CF, ea)
-            elseif pd.CF then
-                interp.CF = pd.CF
-            elseif nd.CF then
-                interp.CF = nd.CF
-            end
-            
-            -- Size Vector3
+            local es = nd.ES or "Linear"
+            local ed = nd.ED or "InOut"
+            local ea = self:ApplyEasing(raw, es, ed)
+            local ip = {ES=es, ED=ed}
+            if pd.CF and nd.CF then ip.CF = self:LerpCF(pd.CF, nd.CF, ea) elseif pd.CF then ip.CF=pd.CF elseif nd.CF then ip.CF=nd.CF end
             if pd.SZ and nd.SZ then
-                if typeof(pd.SZ) == "Vector3" and
-                   typeof(nd.SZ) == "Vector3" then
-                    interp.SZ = self:LerpV3(pd.SZ, nd.SZ, ea)
-                elseif typeof(pd.SZ) == "UDim2" and
-                       typeof(nd.SZ) == "UDim2" then
-                    interp.SZ = self:LerpUD2(pd.SZ, nd.SZ, ea)
-                else
-                    interp.SZ = nd.SZ
-                end
-            elseif pd.SZ then
-                interp.SZ = pd.SZ
-            elseif nd.SZ then
-                interp.SZ = nd.SZ
-            end
-            
-            -- Transparency
-            if pd.TR ~= nil and nd.TR ~= nil then
-                interp.TR = self:LerpNum(pd.TR, nd.TR, ea)
-            elseif pd.TR ~= nil then
-                interp.TR = pd.TR
-            elseif nd.TR ~= nil then
-                interp.TR = nd.TR
-            end
-            
-            -- Color
-            if pd.CL and nd.CL then
-                interp.CL = self:LerpC3(pd.CL, nd.CL, ea)
-            elseif pd.CL then
-                interp.CL = pd.CL
-            elseif nd.CL then
-                interp.CL = nd.CL
-            end
-            
-            -- GUI Position
-            if pd.Pos and nd.Pos then
-                interp.Pos = self:LerpUD2(pd.Pos, nd.Pos, ea)
-            elseif pd.Pos then
-                interp.Pos = pd.Pos
-            elseif nd.Pos then
-                interp.Pos = nd.Pos
-            end
-            
-            -- GUI Size
-            if pd.Sz and nd.Sz then
-                interp.Sz = self:LerpUD2(pd.Sz, nd.Sz, ea)
-            elseif pd.Sz then
-                interp.Sz = pd.Sz
-            elseif nd.Sz then
-                interp.Sz = nd.Sz
-            end
-            
-            -- Rotation
-            if pd.Rot ~= nil and nd.Rot ~= nil then
-                interp.Rot = self:LerpNum(pd.Rot, nd.Rot, ea)
-            elseif pd.Rot ~= nil then
-                interp.Rot = pd.Rot
-            elseif nd.Rot ~= nil then
-                interp.Rot = nd.Rot
-            end
-            
-            -- GUI Transparency
-            if pd.Tr ~= nil and nd.Tr ~= nil then
-                interp.Tr = self:LerpNum(pd.Tr, nd.Tr, ea)
-            elseif pd.Tr ~= nil then
-                interp.Tr = pd.Tr
-            elseif nd.Tr ~= nil then
-                interp.Tr = nd.Tr
-            end
-            
-            -- FX
-            if pd.Rate ~= nil and nd.Rate ~= nil then
-                interp.Rate = self:LerpNum(pd.Rate, nd.Rate, ea)
-            elseif pd.Rate ~= nil then
-                interp.Rate = pd.Rate
-            end
-            
-            if pd.Bright ~= nil and nd.Bright ~= nil then
-                interp.Bright = self:LerpNum(pd.Bright, nd.Bright, ea)
-            elseif pd.Bright ~= nil then
-                interp.Bright = pd.Bright
-            end
-            
-            if pd.Range ~= nil and nd.Range ~= nil then
-                interp.Range = self:LerpNum(pd.Range, nd.Range, ea)
-            elseif pd.Range ~= nil then
-                interp.Range = pd.Range
-            end
-            
-            result.joints[jn] = interp
+                if typeof(pd.SZ)=="Vector3" and typeof(nd.SZ)=="Vector3" then ip.SZ=self:LerpV3(pd.SZ,nd.SZ,ea)
+                elseif typeof(pd.SZ)=="UDim2" and typeof(nd.SZ)=="UDim2" then ip.SZ=self:LerpUD2(pd.SZ,nd.SZ,ea)
+                else ip.SZ=nd.SZ end
+            elseif pd.SZ then ip.SZ=pd.SZ elseif nd.SZ then ip.SZ=nd.SZ end
+            if pd.TR~=nil and nd.TR~=nil then ip.TR=self:LerpNum(pd.TR,nd.TR,ea) elseif pd.TR~=nil then ip.TR=pd.TR elseif nd.TR~=nil then ip.TR=nd.TR end
+            if pd.CL and nd.CL then ip.CL=self:LerpC3(pd.CL,nd.CL,ea) elseif pd.CL then ip.CL=pd.CL elseif nd.CL then ip.CL=nd.CL end
+            if pd.Pos and nd.Pos then ip.Pos=self:LerpUD2(pd.Pos,nd.Pos,ea) elseif pd.Pos then ip.Pos=pd.Pos elseif nd.Pos then ip.Pos=nd.Pos end
+            if pd.Sz and nd.Sz then ip.Sz=self:LerpUD2(pd.Sz,nd.Sz,ea) elseif pd.Sz then ip.Sz=pd.Sz elseif nd.Sz then ip.Sz=nd.Sz end
+            if pd.Rot~=nil and nd.Rot~=nil then ip.Rot=self:LerpNum(pd.Rot,nd.Rot,ea) elseif pd.Rot~=nil then ip.Rot=pd.Rot elseif nd.Rot~=nil then ip.Rot=nd.Rot end
+            if pd.Tr~=nil and nd.Tr~=nil then ip.Tr=self:LerpNum(pd.Tr,nd.Tr,ea) elseif pd.Tr~=nil then ip.Tr=pd.Tr elseif nd.Tr~=nil then ip.Tr=nd.Tr end
+            if pd.Rate~=nil and nd.Rate~=nil then ip.Rate=self:LerpNum(pd.Rate,nd.Rate,ea) elseif pd.Rate~=nil then ip.Rate=pd.Rate end
+            if pd.Bright~=nil and nd.Bright~=nil then ip.Bright=self:LerpNum(pd.Bright,nd.Bright,ea) elseif pd.Bright~=nil then ip.Bright=pd.Bright end
+            if pd.Range~=nil and nd.Range~=nil then ip.Range=self:LerpNum(pd.Range,nd.Range,ea) elseif pd.Range~=nil then ip.Range=pd.Range end
+            result.joints[jn] = ip
         end
     end
-    
     return result
 end
 
-function Engine:ApplyFrame(fd)
-    if not fd then return end
-    if not fd.joints then return end
-    
+function EC:ApplyFrame(fd)
+    if not fd or not fd.joints then return end
     for i = 1, #self.AllJoints do
         local j = self.AllJoints[i]
-        if j and self:IsJointValid(j) then
+        if j and self:JValid(j) then
             local d = fd.joints[j.Name]
             if d then
                 pcall(function()
-                    if j.Type == "Motor6D" then
-                        if d.CF then
-                            j.Inst.C0 = d.CF
-                        end
-                    elseif j.Type == "Part" then
-                        if d.CF then
-                            j.Inst.CFrame = d.CF
-                        end
-                        if d.SZ and typeof(d.SZ) == "Vector3" then
-                            j.Inst.Size = d.SZ
-                        end
-                        if d.TR ~= nil then
-                            j.Inst.Transparency = d.TR
-                        end
-                        if d.CL then
-                            j.Inst.Color = d.CL
-                        end
-                    elseif j.Type == "GUI" then
-                        if d.Pos then
-                            j.Inst.Position = d.Pos
-                        end
-                        if d.Sz then
-                            j.Inst.Size = d.Sz
-                        end
-                        if d.Rot ~= nil then
-                            j.Inst.Rotation = d.Rot
-                        end
-                        if d.Tr ~= nil then
-                            j.Inst.BackgroundTransparency = d.Tr
-                        end
-                    elseif j.Type == "FX" then
-                        if d.Rate ~= nil then
-                            pcall(function()
-                                j.Inst.Rate = d.Rate
-                            end)
-                        end
-                        if d.Bright ~= nil then
-                            pcall(function()
-                                j.Inst.Brightness = d.Bright
-                            end)
-                        end
-                        if d.Range ~= nil then
-                            pcall(function()
-                                j.Inst.Range = d.Range
-                            end)
-                        end
+                    if j.Type=="Motor6D" then if d.CF then j.Inst.C0=d.CF end
+                    elseif j.Type=="Part" then
+                        if d.CF then j.Inst.CFrame=d.CF end
+                        if d.SZ and typeof(d.SZ)=="Vector3" then j.Inst.Size=d.SZ end
+                        if d.TR~=nil then j.Inst.Transparency=d.TR end
+                        if d.CL then j.Inst.Color=d.CL end
+                    elseif j.Type=="GUI" then
+                        if d.Pos then j.Inst.Position=d.Pos end
+                        if d.Sz then j.Inst.Size=d.Sz end
+                        if d.Rot~=nil then j.Inst.Rotation=d.Rot end
+                        if d.Tr~=nil then j.Inst.BackgroundTransparency=d.Tr end
+                    elseif j.Type=="FX" then
+                        pcall(function() if d.Rate~=nil then j.Inst.Rate=d.Rate end end)
+                        pcall(function() if d.Bright~=nil then j.Inst.Brightness=d.Bright end end)
+                        pcall(function() if d.Range~=nil then j.Inst.Range=d.Range end end)
                     end
                 end)
             end
@@ -908,286 +442,132 @@ function Engine:ApplyFrame(fd)
     end
 end
 
-function Engine:GoTo(time)
+function EC:GoTo(time)
     self.CurrentTime = math.max(0, time)
     local fd = self:Evaluate(self.CurrentTime)
-    if fd then
-        self:ApplyFrame(fd)
-    end
+    if fd then self:ApplyFrame(fd) end
 end
-
-function Engine:Play()
+function EC:Play()
     if self.IsPlaying then return end
     if #self.Keyframes < 2 then return end
-    
     self.IsPlaying = true
-    
-    local startTick = tick()
-    local startTime = self.CurrentTime
-    local maxTime = self:GetMaxTime()
-    
-    -- Limpar conexão anterior
-    if self.PlayConn then
-        pcall(function()
-            self.PlayConn:Disconnect()
-        end)
-        self.PlayConn = nil
-    end
-    
+    local st = tick()
+    local sa = self.CurrentTime
+    local mx = self:GetMaxTime()
+    if self.PlayConn then pcall(function() self.PlayConn:Disconnect() end) self.PlayConn = nil end
     self.PlayConn = RunService.RenderStepped:Connect(function()
         if not self.IsPlaying then
-            pcall(function()
-                if self.PlayConn then
-                    self.PlayConn:Disconnect()
-                    self.PlayConn = nil
-                end
-            end)
+            pcall(function() if self.PlayConn then self.PlayConn:Disconnect() self.PlayConn=nil end end)
             return
         end
-        
-        local elapsed = (tick() - startTick) * self.Speed
-        self.CurrentTime = startTime + elapsed
-        
-        if self.CurrentTime >= maxTime then
-            if self.IsLooping then
-                startTick = tick()
-                startTime = 0
-                self.CurrentTime = 0
-            else
-                self.CurrentTime = maxTime
-                self.IsPlaying = false
-                pcall(function()
-                    if self.PlayConn then
-                        self.PlayConn:Disconnect()
-                        self.PlayConn = nil
-                    end
-                end)
-                return
+        local el = (tick()-st)*self.Speed
+        self.CurrentTime = sa + el
+        if self.CurrentTime >= mx then
+            if self.IsLooping then st=tick() sa=0 self.CurrentTime=0
+            else self.CurrentTime=mx self.IsPlaying=false
+                pcall(function() if self.PlayConn then self.PlayConn:Disconnect() self.PlayConn=nil end end) return
             end
         end
-        
-        local frameData = self:Evaluate(self.CurrentTime)
-        if frameData then
-            self:ApplyFrame(frameData)
-        end
+        local fd = self:Evaluate(self.CurrentTime)
+        if fd then self:ApplyFrame(fd) end
     end)
 end
-
-function Engine:Stop()
+function EC:Stop()
     self.IsPlaying = false
-    if self.PlayConn then
-        pcall(function()
-            self.PlayConn:Disconnect()
-        end)
-        self.PlayConn = nil
-    end
+    if self.PlayConn then pcall(function() self.PlayConn:Disconnect() end) self.PlayConn = nil end
 end
-
-function Engine:Pause()
-    self.IsPlaying = false
-end
-
-function Engine:CopyKF()
+function EC:Pause() self.IsPlaying = false end
+function EC:CopyKF()
     for _, kf in ipairs(self.Keyframes) do
-        if math.abs(kf.time - self.CurrentTime) < 0.05 then
-            self.Clipboard = {joints = {}}
-            for n, d in pairs(kf.joints) do
-                local dd = {}
-                for k, v in pairs(d) do
-                    dd[k] = v
-                end
-                self.Clipboard.joints[n] = dd
-            end
+        if math.abs(kf.time-self.CurrentTime)<0.05 then
+            self.Clipboard = {joints={}}
+            for n,d in pairs(kf.joints) do local dd={} for k,v in pairs(d) do dd[k]=v end self.Clipboard.joints[n]=dd end
             return true
         end
     end
     return false
 end
-
-function Engine:PasteKF()
+function EC:PasteKF()
     if not self.Clipboard then return end
     self:PushUndo()
-    local kf = {
-        time = self.CurrentTime,
-        joints = {}
-    }
-    for n, d in pairs(self.Clipboard.joints) do
-        local dd = {}
-        for k, v in pairs(d) do
-            dd[k] = v
-        end
-        kf.joints[n] = dd
-    end
-    
-    local newList = {}
-    for _, existingKF in ipairs(self.Keyframes) do
-        if math.abs(existingKF.time - self.CurrentTime) >= 0.001 then
-            table.insert(newList, existingKF)
-        end
-    end
-    self.Keyframes = newList
-    
+    local kf = {time=self.CurrentTime, joints={}}
+    for n,d in pairs(self.Clipboard.joints) do local dd={} for k,v in pairs(d) do dd[k]=v end kf.joints[n]=dd end
+    local nl = {}
+    for _,ek in ipairs(self.Keyframes) do if math.abs(ek.time-self.CurrentTime)>=0.001 then table.insert(nl,ek) end end
+    self.Keyframes = nl
     table.insert(self.Keyframes, kf)
-    table.sort(self.Keyframes, function(a, b)
-        return a.time < b.time
-    end)
+    table.sort(self.Keyframes, function(a,b) return a.time<b.time end)
 end
-
-function Engine:ClearAll()
-    self:PushUndo()
-    self.Keyframes = {}
-end
-
-function Engine:Mirror()
+function EC:ClearAll() self:PushUndo() self.Keyframes = {} end
+function EC:MirrorKF()
     self:PushUndo()
     for _, kf in ipairs(self.Keyframes) do
-        if math.abs(kf.time - self.CurrentTime) < 0.05 then
+        if math.abs(kf.time-self.CurrentTime)<0.05 then
             for _, d in pairs(kf.joints) do
-                if d.CF then
-                    pcall(function()
-                        local p = d.CF.Position
-                        local rx, ry, rz = d.CF:ToEulerAnglesXYZ()
-                        if self.MirrorAxis == "X" then
-                            d.CF = CFrame.new(-p.X, p.Y, p.Z) *
-                                CFrame.Angles(-rx, ry, rz)
-                        elseif self.MirrorAxis == "Y" then
-                            d.CF = CFrame.new(p.X, -p.Y, p.Z) *
-                                CFrame.Angles(rx, -ry, rz)
-                        else
-                            d.CF = CFrame.new(p.X, p.Y, -p.Z) *
-                                CFrame.Angles(rx, ry, -rz)
-                        end
-                    end)
-                end
+                if d.CF then pcall(function()
+                    local p=d.CF.Position local rx,ry,rz=d.CF:ToEulerAnglesXYZ()
+                    if self.MirrorAxis=="X" then d.CF=CFrame.new(-p.X,p.Y,p.Z)*CFrame.Angles(-rx,ry,rz)
+                    elseif self.MirrorAxis=="Y" then d.CF=CFrame.new(p.X,-p.Y,p.Z)*CFrame.Angles(rx,-ry,rz)
+                    else d.CF=CFrame.new(p.X,p.Y,-p.Z)*CFrame.Angles(rx,ry,-rz) end
+                end) end
             end
             break
         end
     end
 end
-
-function Engine:Reverse()
+function EC:ReverseKFs()
     self:PushUndo()
-    if #self.Keyframes == 0 then return end
-    local mx = self:GetMaxTime()
-    for _, kf in ipairs(self.Keyframes) do
-        kf.time = mx - kf.time
-    end
-    table.sort(self.Keyframes, function(a, b)
-        return a.time < b.time
-    end)
+    if #self.Keyframes==0 then return end
+    local mx=self:GetMaxTime()
+    for _,kf in ipairs(self.Keyframes) do kf.time=mx-kf.time end
+    table.sort(self.Keyframes, function(a,b) return a.time<b.time end)
 end
-
-function Engine:DupKF(src, dst)
+function EC:DupKF(src,dst)
     self:PushUndo()
-    for _, kf in ipairs(self.Keyframes) do
-        if math.abs(kf.time - src) < 0.05 then
-            local nk = {time = dst, joints = {}}
-            for n, d in pairs(kf.joints) do
-                local dd = {}
-                for k, v in pairs(d) do
-                    dd[k] = v
-                end
-                nk.joints[n] = dd
-            end
-            table.insert(self.Keyframes, nk)
-            table.sort(self.Keyframes, function(a, b)
-                return a.time < b.time
-            end)
-            return
+    for _,kf in ipairs(self.Keyframes) do
+        if math.abs(kf.time-src)<0.05 then
+            local nk={time=dst,joints={}}
+            for n,d in pairs(kf.joints) do local dd={} for k,v in pairs(d) do dd[k]=v end nk.joints[n]=dd end
+            table.insert(self.Keyframes,nk)
+            table.sort(self.Keyframes,function(a,b) return a.time<b.time end) return
         end
     end
 end
-
-function Engine:ScaleTime(f)
-    self:PushUndo()
-    for _, kf in ipairs(self.Keyframes) do
-        kf.time = kf.time * f
+function EC:ScaleTime(f) self:PushUndo() for _,kf in ipairs(self.Keyframes) do kf.time=kf.time*f end end
+function EC:AddMarker(t,n) table.insert(self.Markers,{time=t,name=n or "M",color=Color3.fromRGB(255,200,0)}) end
+function EC:ResetPose()
+    for _,j in ipairs(self.AllJoints) do
+        if self:JValid(j) then pcall(function()
+            if j.Type=="Motor6D" then j.Inst.C0=j.OC0
+            elseif j.Type=="Part" then j.Inst.CFrame=j.OCF
+            elseif j.Type=="GUI" then j.Inst.Position=j.OPos j.Inst.Size=j.OSize j.Inst.Rotation=j.ORot end
+        end) end
     end
 end
 
-function Engine:AddMarker(t, n)
-    table.insert(self.Markers, {
-        time = t,
-        name = n or "M",
-        color = Color3.fromRGB(255, 200, 0)
-    })
-end
-
-function Engine:ResetPose()
-    for _, j in ipairs(self.AllJoints) do
-        if self:IsJointValid(j) then
-            pcall(function()
-                if j.Type == "Motor6D" then
-                    j.Inst.C0 = j.OC0
-                elseif j.Type == "Part" then
-                    j.Inst.CFrame = j.OCF
-                elseif j.Type == "GUI" then
-                    j.Inst.Position = j.OPos
-                    j.Inst.Size = j.OSize
-                    j.Inst.Rotation = j.ORot
-                end
-            end)
-        end
-    end
-end
-
-print("❄️ Part 2/7 Loaded - Animation Engine")
-
-local Eng = Engine.new()
+Eng = EC.new()
+print("P2 OK")
 
 --[[
-    ╔══════════════════════════════════════════════╗
-    ║       Snow Hub Studios❄️ - PARTE 3/7        ║
-    ║     Serialize, Export & Loading Screen        ║
-    ╚══════════════════════════════════════════════╝
+    Snow Hub Studios - PARTE 3/7
+    Serialize, Export & Loading Screen
 ]]
 
--- ============================================
--- SERIALIZATION
--- ============================================
-
-function Engine:Serialize()
-    local data = {
-        KF = {},
-        Spd = self.Speed,
-        AT = self.AnimType,
-        IM = self.InterpMode,
-        Loop = self.IsLooping,
-        FPS = self.FPS,
-        VM = self.ViewMode
-    }
-    for i, kf in ipairs(self.Keyframes) do
-        local kd = {t = kf.time, j = {}}
-        for jn, jd in pairs(kf.joints) do
+function EC:Serialize()
+    local data = {KF={}, Spd=self.Speed, AT=self.AnimType, IM=self.InterpMode, Loop=self.IsLooping, FPS=self.FPS, VM=self.ViewMode}
+    for i,kf in ipairs(self.Keyframes) do
+        local kd = {t=kf.time, j={}}
+        for jn,jd in pairs(kf.joints) do
             local d = {ES=jd.ES, ED=jd.ED}
-            if jd.CF then
-                d.CF = {jd.CF:GetComponents()}
-            end
-            if jd.SZ then
-                if typeof(jd.SZ)=="Vector3" then
-                    d.SZ = {jd.SZ.X,jd.SZ.Y,jd.SZ.Z}
-                    d.ST = "V3"
-                end
-            end
-            if jd.Sz then
-                d.Sz = {
-                    jd.Sz.X.Scale,jd.Sz.X.Offset,
-                    jd.Sz.Y.Scale,jd.Sz.Y.Offset
-                }
-            end
-            if jd.Pos then
-                d.Pos = {
-                    jd.Pos.X.Scale,jd.Pos.X.Offset,
-                    jd.Pos.Y.Scale,jd.Pos.Y.Offset
-                }
-            end
-            if jd.TR then d.TR = jd.TR end
-            if jd.Rot then d.Rot = jd.Rot end
-            if jd.Tr then d.Tr = jd.Tr end
-            if jd.CL then
-                d.CL = {jd.CL.R,jd.CL.G,jd.CL.B}
-            end
-            if jd.Rate then d.Rate = jd.Rate end
+            if jd.CF then pcall(function() d.CF={jd.CF:GetComponents()} end) end
+            if jd.SZ and typeof(jd.SZ)=="Vector3" then pcall(function() d.SZ={jd.SZ.X,jd.SZ.Y,jd.SZ.Z} d.ST="V3" end) end
+            if jd.Sz then pcall(function() d.Sz={jd.Sz.X.Scale,jd.Sz.X.Offset,jd.Sz.Y.Scale,jd.Sz.Y.Offset} end) end
+            if jd.Pos then pcall(function() d.Pos={jd.Pos.X.Scale,jd.Pos.X.Offset,jd.Pos.Y.Scale,jd.Pos.Y.Offset} end) end
+            if jd.TR then d.TR=jd.TR end
+            if jd.Rot then d.Rot=jd.Rot end
+            if jd.Tr then d.Tr=jd.Tr end
+            if jd.CL then pcall(function() d.CL={jd.CL.R,jd.CL.G,jd.CL.B} end) end
+            if jd.Rate then d.Rate=jd.Rate end
             if jd.Bright then d.Bright=jd.Bright end
             if jd.Range then d.Range=jd.Range end
             kd.j[jn] = d
@@ -1197,2987 +577,747 @@ function Engine:Serialize()
     return data
 end
 
-function Engine:Deserialize(data)
+function EC:Deserialize(data)
     if not data then return end
-    self.Speed = data.Spd or 1
-    self.AnimType = data.AT or "Core"
-    self.InterpMode = data.IM or "Linear"
-    self.IsLooping = data.Loop or false
-    self.FPS = data.FPS or 60
-    self.ViewMode = data.VM or "Global"
+    self.Speed=data.Spd or 1 self.AnimType=data.AT or "Core" self.InterpMode=data.IM or "Linear"
+    self.IsLooping=data.Loop or false self.FPS=data.FPS or 60 self.ViewMode=data.VM or "Global"
     self.Keyframes = {}
-    
-    for i, kd in ipairs(data.KF or {}) do
+    if not data.KF then return end
+    for i,kd in ipairs(data.KF) do
         local kf = {time=kd.t, joints={}}
-        for jn, d in pairs(kd.j) do
-            local jd = {
-                ES = d.ES or "Linear",
-                ED = d.ED or "InOut"
-            }
-            if d.CF then
-                jd.CF = CFrame.new(unpack(d.CF))
+        if kd.j then
+            for jn,d in pairs(kd.j) do
+                local jd = {ES=d.ES or "Linear", ED=d.ED or "InOut"}
+                if d.CF then pcall(function() jd.CF=CFrame.new(unpack(d.CF)) end) end
+                if d.SZ and d.ST=="V3" then pcall(function() jd.SZ=Vector3.new(unpack(d.SZ)) end) end
+                if d.Sz then pcall(function() jd.Sz=UDim2.new(unpack(d.Sz)) end) end
+                if d.Pos then pcall(function() jd.Pos=UDim2.new(unpack(d.Pos)) end) end
+                if d.TR then jd.TR=d.TR end if d.Rot then jd.Rot=d.Rot end if d.Tr then jd.Tr=d.Tr end
+                if d.CL then pcall(function() jd.CL=Color3.new(unpack(d.CL)) end) end
+                if d.Rate then jd.Rate=d.Rate end if d.Bright then jd.Bright=d.Bright end if d.Range then jd.Range=d.Range end
+                kf.joints[jn] = jd
             end
-            if d.SZ then
-                if d.ST=="V3" then
-                    jd.SZ = Vector3.new(unpack(d.SZ))
-                end
-            end
-            if d.Sz then
-                jd.Sz = UDim2.new(unpack(d.Sz))
-            end
-            if d.Pos then
-                jd.Pos = UDim2.new(unpack(d.Pos))
-            end
-            if d.TR then jd.TR = d.TR end
-            if d.Rot then jd.Rot = d.Rot end
-            if d.Tr then jd.Tr = d.Tr end
-            if d.CL then
-                jd.CL = Color3.new(unpack(d.CL))
-            end
-            if d.Rate then jd.Rate=d.Rate end
-            if d.Bright then jd.Bright=d.Bright end
-            if d.Range then jd.Range=d.Range end
-            kf.joints[jn] = jd
         end
         self.Keyframes[i] = kf
     end
 end
 
--- ============================================
--- EXPORT SCRIPT GENERATOR
--- ============================================
-
-function Engine:GenExportScript()
-    local s = "-- Snow Animator Pro Export\n"
-    s=s.."-- Type: "..self.AnimType.."\n"
-    s=s.."local RS=game:GetService('RunService')\n"
-    s=s.."local D={Spd="..self.Speed
-    s=s..",Loop="..tostring(self.IsLooping)
-    s=s..",KF={\n"
-    
-    for _, kf in ipairs(self.Keyframes) do
+function EC:GenExportScript()
+    local s = "-- Snow Animator Pro Export\nlocal RS=game:GetService('RunService')\nlocal D={Spd="..self.Speed..",Loop="..tostring(self.IsLooping)..",KF={\n"
+    for _,kf in ipairs(self.Keyframes) do
         s=s.."{t="..kf.time..",j={\n"
-        for jn, d in pairs(kf.joints) do
+        for jn,d in pairs(kf.joints) do
             s=s..'["'..jn..'"]={'
-            if d.CF then
-                local c={d.CF:GetComponents()}
-                s=s.."CF=CFrame.new("
-                s=s..table.concat(c,",").."),"
-            end
+            if d.CF then pcall(function() local c={d.CF:GetComponents()} s=s.."CF=CFrame.new("..table.concat(c,",")..")," end) end
             if d.TR then s=s.."TR="..d.TR.."," end
-            s=s..'ES="'..(d.ES or "Linear")..'",'
-            s=s..'ED="'..(d.ED or "InOut")..'"'
+            s=s..'ES="'..(d.ES or "Linear")..'",ED="'..(d.ED or "InOut")..'"'
             s=s.."},\n"
         end
         s=s.."}},\n"
     end
-    
-    s=s.."}}\n"
-    s=s..[[
-local tgt=script.Parent
-local js={}
-for _,d in ipairs(tgt:GetDescendants()) do
-    if d:IsA("Motor6D") then js[d.Name]=d end
-end
-local st=tick()
-local mx=0
-for _,k in ipairs(D.KF) do
-    if k.t>mx then mx=k.t end
-end
-local cn
-cn=RS.Heartbeat:Connect(function()
-    local el=(tick()-st)*D.Spd
-    if el>mx then
-        if D.Loop then st=tick() el=0
-        else cn:Disconnect() return end
-    end
-    local pv,nx
-    for _,k in ipairs(D.KF) do
-        if k.t<=el then pv=k end
-        if k.t>=el and not nx then nx=k end
-    end
-    if not pv then pv=D.KF[1] end
-    if not nx then nx=D.KF[#D.KF] end
-    if pv and nx and pv~=nx then
-        local a=(el-pv.t)/(nx.t-pv.t)
-        a=math.clamp(a,0,1)
-        for jn,pd in pairs(pv.j) do
-            local nd=nx.j[jn]
-            if nd and js[jn] then
-                if pd.CF and nd.CF then
-                    js[jn].C0=pd.CF:Lerp(nd.CF,a)
-                end
-            end
-        end
-    end
-end)
-]]
+    s=s.."}}\nlocal tgt=script.Parent\nlocal js={}\nfor _,d in ipairs(tgt:GetDescendants()) do if d:IsA('Motor6D') then js[d.Name]=d end end\n"
+    s=s.."local st=tick() local mx=0\nfor _,k in ipairs(D.KF) do if k.t>mx then mx=k.t end end\n"
+    s=s.."local cn cn=RS.Heartbeat:Connect(function()\nlocal el=(tick()-st)*D.Spd\nif el>mx then if D.Loop then st=tick() el=0 else cn:Disconnect() return end end\n"
+    s=s.."local pv,nx for _,k in ipairs(D.KF) do if k.t<=el then pv=k end if k.t>=el and not nx then nx=k end end\n"
+    s=s.."if not pv then pv=D.KF[1] end if not nx then nx=D.KF[#D.KF] end\n"
+    s=s.."if pv and nx and pv~=nx then local a=math.clamp((el-pv.t)/(nx.t-pv.t),0,1)\n"
+    s=s.."for jn,pd in pairs(pv.j) do local nd=nx.j[jn] if nd and js[jn] then if pd.CF and nd.CF then js[jn].C0=pd.CF:Lerp(nd.CF,a) end end end end end)\n"
     return s
 end
 
--- ============================================
--- EXPORT TO REPLICATED STORAGE
--- ============================================
-
-function Engine:ExportToRS(expType)
+function EC:ExportToRS(expType)
     self.ExportCount = self.ExportCount + 1
-    local id = string.format("%03d", self.ExportCount)
-    local fn = "SNA_"..id
-    
-    local mf = Instance.new("Folder")
-    mf.Name = fn
-    mf.Parent = ReplicatedStorage
-    
-    local at = Instance.new("StringValue")
-    at.Name = "AnimType"
-    at.Value = self.AnimType
-    at.Parent = mf
-    
-    local sv = Instance.new("NumberValue")
-    sv.Name = "Speed"
-    sv.Value = self.Speed
-    sv.Parent = mf
-    
-    local lv = Instance.new("BoolValue")
-    lv.Name = "Loop"
-    lv.Value = self.IsLooping
-    lv.Parent = mf
-    
-    local et = Instance.new("StringValue")
-    et.Name = "ExportType"
-    et.Value = expType or "NPC"
-    et.Parent = mf
-    
-    local kff = Instance.new("Folder")
-    kff.Name = "KeyFrames"
-    kff.Parent = mf
-    
-    for i, kf in ipairs(self.Keyframes) do
-        local ki = Instance.new("Folder")
-        ki.Name = "KF_"..string.format("%04d",i)
-        ki.Parent = kff
-        
-        local tv = Instance.new("NumberValue")
-        tv.Name = "Time"
-        tv.Value = kf.time
-        tv.Parent = ki
-        
-        local jf = Instance.new("Folder")
-        jf.Name = "Joints"
-        jf.Parent = ki
-        
-        for jn, d in pairs(kf.joints) do
-            local jfi = Instance.new("Folder")
-            jfi.Name = jn
-            jfi.Parent = jf
-            if d.CF then
-                local cv = Instance.new("CFrameValue")
-                cv.Name = "CF"
-                cv.Value = d.CF
-                cv.Parent = jfi
+    local fn = "SNA_"..string.format("%03d", self.ExportCount)
+    pcall(function()
+        local mf = Instance.new("Folder") mf.Name=fn mf.Parent=ReplicatedStorage
+        local at=Instance.new("StringValue") at.Name="AnimType" at.Value=self.AnimType at.Parent=mf
+        local sv=Instance.new("NumberValue") sv.Name="Speed" sv.Value=self.Speed sv.Parent=mf
+        local lv=Instance.new("BoolValue") lv.Name="Loop" lv.Value=self.IsLooping lv.Parent=mf
+        local et=Instance.new("StringValue") et.Name="ExportType" et.Value=expType or "NPC" et.Parent=mf
+        local kff=Instance.new("Folder") kff.Name="KeyFrames" kff.Parent=mf
+        for i,kf in ipairs(self.Keyframes) do
+            local ki=Instance.new("Folder") ki.Name="KF_"..string.format("%04d",i) ki.Parent=kff
+            local tv=Instance.new("NumberValue") tv.Name="Time" tv.Value=kf.time tv.Parent=ki
+            local jf=Instance.new("Folder") jf.Name="Joints" jf.Parent=ki
+            for jn,d in pairs(kf.joints) do
+                local jfi=Instance.new("Folder") jfi.Name=jn jfi.Parent=jf
+                if d.CF then pcall(function() local cv=Instance.new("CFrameValue") cv.Name="CF" cv.Value=d.CF cv.Parent=jfi end) end
             end
         end
-    end
-    
-    -- Playback ModuleScript
-    local ps = Instance.new("ModuleScript")
-    ps.Name = "Playback"
-    ps.Source = self:GenExportScript()
-    ps.Parent = mf
-    
+        local ps=Instance.new("ModuleScript") ps.Name="Playback" ps.Source=self:GenExportScript() ps.Parent=mf
+    end)
     return fn
 end
 
--- ============================================
 -- LOADING SCREEN
--- ============================================
-
-local SG = UI.Create("ScreenGui", {
-    Name = "SnowHubStudios",
-    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-    ResetOnSpawn = false,
-    Parent = CoreGui
-})
-
-local LoadF = UI.Create("Frame", {
-    Name = "LoadScreen",
-    Size = UDim2.new(1,0,1,0),
-    BackgroundColor3 = Color3.fromRGB(8,10,18),
-    BorderSizePixel = 0,
-    Parent = SG
-})
-
--- Neve animada
-local snowC = UI.Create("Frame", {
-    Size = UDim2.new(1,0,1,0),
-    BackgroundTransparency = 1,
-    Parent = LoadF
-})
-
-local flakes = {}
-for i = 1, 30 do
-    local fl = UI.Create("TextLabel", {
-        Size = UDim2.new(0, math.random(8,18),
-            0, math.random(8,18)),
-        Position = UDim2.new(
-            math.random(0,100)/100, 0, -0.05, 0),
-        BackgroundTransparency = 1,
-        Text = "❄",
-        TextColor3 = Color3.fromRGB(180,200,255),
-        TextTransparency = math.random(30,70)/100,
-        TextSize = math.random(10,22),
-        Font = Enum.Font.SourceSans,
-        Parent = snowC
-    })
-    table.insert(flakes, {
-        o = fl,
-        sp = math.random(20,70)/1000,
-        sw = math.random(-30,30)/100,
-        sx = math.random(0,100)/100
-    })
+SG = nil
+pcall(function() SG = UI.Create("ScreenGui", {Name="SnowHubStudios", ZIndexBehavior=Enum.ZIndexBehavior.Sibling, ResetOnSpawn=false, Parent=CoreGui}) end)
+if not SG then
+    SG = UI.Create("ScreenGui", {Name="SnowHubStudios", ResetOnSpawn=false, Parent=LocalPlayer:WaitForChild("PlayerGui")})
 end
 
+LoadF = UI.Create("Frame", {Name="LoadScreen", Size=UDim2.new(1,0,1,0), BackgroundColor3=Color3.fromRGB(8,10,18), BorderSizePixel=0, Parent=SG})
+snowC = UI.Create("Frame", {Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, Parent=LoadF})
+flakes = {}
+for i=1,25 do
+    local fl = UI.Create("TextLabel", {Size=UDim2.new(0,math.random(8,16),0,math.random(8,16)), Position=UDim2.new(math.random(0,100)/100,0,-0.05,0), BackgroundTransparency=1, Text="❄", TextColor3=Color3.fromRGB(180,200,255), TextTransparency=math.random(30,70)/100, TextSize=math.random(10,20), Font=Enum.Font.SourceSans, Parent=snowC})
+    if fl then table.insert(flakes, {o=fl, sp=math.random(20,60)/1000, sw=math.random(-30,30)/100, sx=math.random(0,100)/100}) end
+end
 spawn(function()
-    while LoadF and LoadF.Parent and
-          LoadF.Visible do
-        for _, s in ipairs(flakes) do
+    while LoadF and LoadF.Parent and LoadF.Visible do
+        for _,s in ipairs(flakes) do pcall(function()
             if s.o and s.o.Parent then
-                local cy = s.o.Position.Y.Scale
-                local ny = cy + s.sp
-                local nx = s.sx +
-                    math.sin(tick()*s.sw)*0.05
-                if ny > 1.1 then
-                    ny = -0.05
-                    s.sx = math.random(0,100)/100
-                end
-                s.o.Position = UDim2.new(
-                    nx,0,ny,0)
+                local ny=s.o.Position.Y.Scale+s.sp
+                local nx=s.sx+math.sin(tick()*s.sw)*0.05
+                if ny>1.1 then ny=-0.05 s.sx=math.random(0,100)/100 end
+                s.o.Position=UDim2.new(nx,0,ny,0)
             end
-        end
+        end) end
         RunService.RenderStepped:Wait()
     end
 end)
 
--- Logo
-local LC = UI.Create("Frame", {
-    Size = UDim2.new(0,450,0,350),
-    Position = UDim2.new(0.5,-225,0.5,-175),
-    BackgroundTransparency = 1,
-    Parent = LoadF
-})
-
--- Glow
-UI.Create("TextLabel", {
-    Size = UDim2.new(1,0,0,65),
-    Position = UDim2.new(0,0,0.05,0),
-    BackgroundTransparency = 1,
-    Text = "Snow Hub Studios❄️",
-    TextColor3 = Color3.fromRGB(100,180,255),
-    TextTransparency = 0.5,
-    TextSize = 42,
-    Font = Enum.Font.GothamBold,
-    Parent = LC
-})
-
--- Título
-UI.Create("TextLabel", {
-    Size = UDim2.new(1,0,0,65),
-    Position = UDim2.new(0,0,0.05,0),
-    BackgroundTransparency = 1,
-    Text = "Snow Hub Studios❄️",
-    TextColor3 = Color3.fromRGB(220,235,255),
-    TextSize = 38,
-    Font = Enum.Font.GothamBold,
-    Parent = LC
-})
-
-UI.Create("TextLabel", {
-    Size = UDim2.new(1,0,0,25),
-    Position = UDim2.new(0,0,0.25,0),
-    BackgroundTransparency = 1,
-    Text = "Professional Animation Suite",
-    TextColor3 = T.TD,
-    TextSize = 14,
-    Font = Enum.Font.Gotham,
-    Parent = LC
-})
-
--- Barra
-local lbBG = UI.Create("Frame", {
-    Size = UDim2.new(0.65,0,0,5),
-    Position = UDim2.new(0.175,0,0.75,0),
-    BackgroundColor3 = T.SF,
-    Parent = LC
-})
+LC = UI.Create("Frame", {Size=UDim2.new(0,420,0,320), Position=UDim2.new(0.5,-210,0.5,-160), BackgroundTransparency=1, Parent=LoadF})
+UI.Create("TextLabel", {Size=UDim2.new(1,0,0,60), Position=UDim2.new(0,0,0.05,0), BackgroundTransparency=1, Text="Snow Hub Studios❄️", TextColor3=Color3.fromRGB(220,235,255), TextSize=36, Font=Enum.Font.GothamBold, Parent=LC})
+UI.Create("TextLabel", {Size=UDim2.new(1,0,0,22), Position=UDim2.new(0,0,0.28,0), BackgroundTransparency=1, Text="Professional Animation Suite", TextColor3=T.TD, TextSize=13, Font=Enum.Font.Gotham, Parent=LC})
+lbBG = UI.Create("Frame", {Size=UDim2.new(0.6,0,0,5), Position=UDim2.new(0.2,0,0.72,0), BackgroundColor3=T.SF, Parent=LC})
 UI.Corner(lbBG, 3)
-
-local lbFill = UI.Create("Frame", {
-    Size = UDim2.new(0,0,1,0),
-    BackgroundColor3 = T.PR,
-    Parent = lbBG
-})
+lbFill = UI.Create("Frame", {Size=UDim2.new(0,0,1,0), BackgroundColor3=T.PR, Parent=lbBG})
 UI.Corner(lbFill, 3)
-UI.Grad(lbFill,
-    Color3.fromRGB(80,140,255),
-    Color3.fromRGB(150,100,255))
-
-local lbTxt = UI.Create("TextLabel", {
-    Size = UDim2.new(1,0,0,20),
-    Position = UDim2.new(0,0,0.82,0),
-    BackgroundTransparency = 1,
-    Text = "Initializing...",
-    TextColor3 = T.TD,
-    TextSize = 12,
-    Font = Enum.Font.Gotham,
-    Parent = LC
-})
-
-UI.Create("TextLabel", {
-    Size = UDim2.new(1,0,0,18),
-    Position = UDim2.new(0,0,0.92,0),
-    BackgroundTransparency = 1,
-    Text = "v2.0 | Delta Executor",
-    TextColor3 = Color3.fromRGB(60,65,80),
-    TextSize = 10,
-    Font = Enum.Font.Gotham,
-    Parent = LC
-})
-
--- Loading animation
-local steps = {
-    {0.1,"Loading Animator Core..."},
-    {0.2,"Initializing Engine..."},
-    {0.35,"Loading Keyframe System..."},
-    {0.5,"Setting up Timeline..."},
-    {0.65,"Loading Curve Editor..."},
-    {0.8,"Preparing Export Tools..."},
-    {0.9,"Loading Save System..."},
-    {1.0,"Ready! ❄️"}
-}
+lbTxt = UI.Create("TextLabel", {Size=UDim2.new(1,0,0,18), Position=UDim2.new(0,0,0.82,0), BackgroundTransparency=1, Text="Loading...", TextColor3=T.TD, TextSize=11, Font=Enum.Font.Gotham, Parent=LC})
 
 spawn(function()
-    for _, st in ipairs(steps) do
-        TweenService:Create(lbFill,
-            TweenInfo.new(0.25,
-            Enum.EasingStyle.Quad,
-            Enum.EasingDirection.Out),
-            {Size=UDim2.new(st[1],0,1,0)}
-        ):Play()
-        lbTxt.Text = st[2]
-        wait(0.3)
+    local loadSteps = {{0.15,"Loading Core..."},{0.3,"Engine Ready..."},{0.5,"Timeline..."},{0.7,"Tools..."},{0.9,"Save System..."},{1.0,"Ready! ❄️"}}
+    for _,st in ipairs(loadSteps) do
+        pcall(function() TweenService:Create(lbFill, TweenInfo.new(0.2), {Size=UDim2.new(st[1],0,1,0)}):Play() lbTxt.Text=st[2] end)
+        wait(0.25)
     end
-    wait(0.4)
-    
-    TweenService:Create(LoadF,
-        TweenInfo.new(0.6),
-        {BackgroundTransparency = 1}
-    ):Play()
-    for _, ch in ipairs(LC:GetChildren()) do
-        if ch:IsA("TextLabel") then
-            TweenService:Create(ch,
-                TweenInfo.new(0.4),
-                {TextTransparency=1}):Play()
-        elseif ch:IsA("Frame") then
-            TweenService:Create(ch,
-                TweenInfo.new(0.4),
-                {BackgroundTransparency=1}):Play()
+    wait(0.3)
+    pcall(function()
+        TweenService:Create(LoadF, TweenInfo.new(0.5), {BackgroundTransparency=1}):Play()
+        for _,ch in ipairs(LC:GetChildren()) do
+            if ch:IsA("TextLabel") then TweenService:Create(ch,TweenInfo.new(0.3),{TextTransparency=1}):Play()
+            elseif ch:IsA("Frame") then TweenService:Create(ch,TweenInfo.new(0.3),{BackgroundTransparency=1}):Play() end
         end
-    end
-    wait(0.6)
-    LoadF.Visible = false
-    
-    if SG:FindFirstChild("Hub") then
-        SG.Hub.Visible = true
-        TweenService:Create(SG.Hub,
-            TweenInfo.new(0.4,
-            Enum.EasingStyle.Back,
-            Enum.EasingDirection.Out),
-            {Size=UDim2.new(0,500,0,620)}
-        ):Play()
-    end
+    end)
+    wait(0.5)
+    pcall(function() LoadF.Visible = false end)
+    pcall(function()
+        if SG:FindFirstChild("Hub") then
+            SG.Hub.Visible = true
+            TweenService:Create(SG.Hub, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size=UDim2.new(0,480,0,600)}):Play()
+        end
+    end)
 end)
-
-print("❄️ Part 3/7 Loaded - Serialize & Loading")
+print("P3 OK")
 
 --[[
-    ╔══════════════════════════════════════════════╗
-    ║       Snow Hub Studios❄️ - PARTE 4/7        ║
-    ║              Hub Principal                   ║
-    ╚══════════════════════════════════════════════╝
+    Snow Hub Studios - PARTE 4/7
+    Hub Principal
 ]]
 
-local Hub = UI.Create("Frame", {
-    Name = "Hub",
-    Size = UDim2.new(0,0,0,0),
-    Position = UDim2.new(0.5,-250,0.5,-310),
-    BackgroundColor3 = T.BG,
-    BorderSizePixel = 0,
-    Visible = false,
-    Parent = SG
-})
+Hub = UI.Create("Frame", {Name="Hub", Size=UDim2.new(0,0,0,0), Position=UDim2.new(0.5,-240,0.5,-300), BackgroundColor3=T.BG, BorderSizePixel=0, Visible=false, Parent=SG})
 UI.Corner(Hub, 14)
 UI.Stroke(Hub, T.PR, 2)
-UI.Grad(Hub,
-    Color3.fromRGB(15,18,28),
-    Color3.fromRGB(25,28,40), 160)
-
--- Título
-UI.Create("TextLabel", {
-    Size = UDim2.new(1,0,0,45),
-    BackgroundTransparency = 1,
-    Text = "❄️ Snow Hub Studios ❄️",
-    TextColor3 = T.SN,
-    TextSize = 24,
-    Font = Enum.Font.GothamBold,
-    Parent = Hub
-})
-
--- Fechar
-local clHub = UI.Create("TextButton", {
-    Size = UDim2.new(0,28,0,28),
-    Position = UDim2.new(1,-36,0,9),
-    BackgroundColor3 = T.DN,
-    Text = "✕",
-    TextColor3 = Color3.new(1,1,1),
-    TextSize = 14,
-    Font = Enum.Font.GothamBold,
-    Parent = Hub
-})
-UI.Corner(clHub, 7)
+UI.Create("TextLabel", {Size=UDim2.new(1,0,0,42), BackgroundTransparency=1, Text="❄️ Snow Hub Studios ❄️", TextColor3=T.SN, TextSize=22, Font=Enum.Font.GothamBold, Parent=Hub})
+clHub = UI.Create("TextButton", {Size=UDim2.new(0,26,0,26), Position=UDim2.new(1,-34,0,8), BackgroundColor3=T.DN, Text="✕", TextColor3=Color3.new(1,1,1), TextSize=13, Font=Enum.Font.GothamBold, Parent=Hub})
+UI.Corner(clHub, 6)
 clHub.MouseButton1Click:Connect(function()
-    TweenService:Create(Hub,
-        TweenInfo.new(0.25,
-        Enum.EasingStyle.Back,
-        Enum.EasingDirection.In),
-        {Size=UDim2.new(0,0,0,0),
-         Position=UDim2.new(0.5,0,0.5,0)}
-    ):Play()
-    wait(0.3)
-    Hub.Visible = false
+    pcall(function() TweenService:Create(Hub,TweenInfo.new(0.2,Enum.EasingStyle.Back,Enum.EasingDirection.In),{Size=UDim2.new(0,0,0,0),Position=UDim2.new(0.5,0,0.5,0)}):Play() end)
+    wait(0.25) pcall(function() Hub.Visible=false end)
 end)
+UI.Create("Frame", {Size=UDim2.new(0.9,0,0,1), Position=UDim2.new(0.05,0,0,48), BackgroundColor3=T.SL, BorderSizePixel=0, Parent=Hub})
 
--- Separador
-UI.Create("Frame", {
-    Size = UDim2.new(0.9,0,0,1),
-    Position = UDim2.new(0.05,0,0,50),
-    BackgroundColor3 = T.SL,
-    BorderSizePixel = 0,
-    Parent = Hub
-})
-
--- Container
-local BC = UI.Create("ScrollingFrame", {
-    Name = "BC",
-    Size = UDim2.new(0.92,0,0,520),
-    Position = UDim2.new(0.04,0,0,58),
-    BackgroundTransparency = 1,
-    ScrollBarThickness = 3,
-    ScrollBarImageColor3 = T.PR,
-    CanvasSize = UDim2.new(0,0,0,680),
-    Parent = Hub
-})
-UI.Create("UIListLayout", {
-    SortOrder = Enum.SortOrder.LayoutOrder,
-    Padding = UDim.new(0,8),
-    Parent = BC
-})
+BC = UI.Create("ScrollingFrame", {Name="BC", Size=UDim2.new(0.92,0,0,500), Position=UDim2.new(0.04,0,0,55), BackgroundTransparency=1, ScrollBarThickness=3, ScrollBarImageColor3=T.PR, CanvasSize=UDim2.new(0,0,0,660), Parent=Hub})
+pcall(function() BC.ElasticBehavior=Enum.ElasticBehavior.Never end)
+UI.Create("UIListLayout", {SortOrder=Enum.SortOrder.LayoutOrder, Padding=UDim.new(0,8), Parent=BC})
 UI.Pad(BC, 4,4,4,4)
+UI.Create("TextLabel", {Size=UDim2.new(1,0,0,20), BackgroundTransparency=1, Text="🌟 Main Scripts", TextColor3=T.AC, TextSize=14, Font=Enum.Font.GothamBold, TextXAlignment=Enum.TextXAlignment.Left, LayoutOrder=1, Parent=BC})
 
--- Label
-UI.Create("TextLabel", {
-    Size = UDim2.new(1,0,0,22),
-    BackgroundTransparency = 1,
-    Text = "🌟 Main Scripts",
-    TextColor3 = T.AC,
-    TextSize = 15,
-    Font = Enum.Font.GothamBold,
-    TextXAlignment = Enum.TextXAlignment.Left,
-    LayoutOrder = 1,
-    Parent = BC
-})
-
--- Função botão hub
-local function HubBtn(nm, desc, ic, ord, cb)
-    local b = UI.Create("TextButton", {
-        Size = UDim2.new(1,-8,0,65),
-        BackgroundColor3 = T.SF,
-        Text = "",
-        LayoutOrder = ord,
-        Parent = BC
-    })
-    UI.Corner(b, 10)
-    UI.Stroke(b, T.SL, 1)
-    
-    local icL = UI.Create("TextLabel", {
-        Size = UDim2.new(0,44,0,44),
-        Position = UDim2.new(0,8,0.5,-22),
-        BackgroundColor3 = T.PD,
-        Text = ic,
-        TextSize = 22,
-        Font = Enum.Font.SourceSans,
-        TextColor3 = Color3.new(1,1,1),
-        Parent = b
-    })
-    UI.Corner(icL, 9)
-    
-    UI.Create("TextLabel", {
-        Size = UDim2.new(1,-68,0,22),
-        Position = UDim2.new(0,60,0,8),
-        BackgroundTransparency = 1,
-        Text = nm,
-        TextColor3 = T.TX,
-        TextSize = 15,
-        Font = Enum.Font.GothamBold,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        Parent = b
-    })
-    
-    UI.Create("TextLabel", {
-        Size = UDim2.new(1,-68,0,18),
-        Position = UDim2.new(0,60,0,32),
-        BackgroundTransparency = 1,
-        Text = desc,
-        TextColor3 = T.TD,
-        TextSize = 11,
-        Font = Enum.Font.Gotham,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        TextTruncate = Enum.TextTruncate.AtEnd,
-        Parent = b
-    })
-    
-    b.MouseEnter:Connect(function()
-        TweenService:Create(b,
-            TweenInfo.new(0.15),
-            {BackgroundColor3=T.SL}):Play()
-    end)
-    b.MouseLeave:Connect(function()
-        TweenService:Create(b,
-            TweenInfo.new(0.15),
-            {BackgroundColor3=T.SF}):Play()
-    end)
+function HubBtn(nm, desc, ic, ord, cb)
+    local b = UI.Create("TextButton", {Size=UDim2.new(1,-8,0,60), BackgroundColor3=T.SF, Text="", LayoutOrder=ord, Parent=BC})
+    UI.Corner(b, 10) UI.Stroke(b, T.SL, 1)
+    local il = UI.Create("TextLabel", {Size=UDim2.new(0,40,0,40), Position=UDim2.new(0,8,0.5,-20), BackgroundColor3=T.PD, Text=ic, TextSize=20, Font=Enum.Font.SourceSans, TextColor3=Color3.new(1,1,1), Parent=b})
+    UI.Corner(il, 8)
+    UI.Create("TextLabel", {Size=UDim2.new(1,-60,0,20), Position=UDim2.new(0,56,0,8), BackgroundTransparency=1, Text=nm, TextColor3=T.TX, TextSize=14, Font=Enum.Font.GothamBold, TextXAlignment=Enum.TextXAlignment.Left, Parent=b})
+    UI.Create("TextLabel", {Size=UDim2.new(1,-60,0,16), Position=UDim2.new(0,56,0,30), BackgroundTransparency=1, Text=desc, TextColor3=T.TD, TextSize=10, Font=Enum.Font.Gotham, TextXAlignment=Enum.TextXAlignment.Left, TextTruncate=Enum.TextTruncate.AtEnd, Parent=b})
+    b.MouseEnter:Connect(function() pcall(function() TweenService:Create(b,TweenInfo.new(0.12),{BackgroundColor3=T.SL}):Play() end) end)
+    b.MouseLeave:Connect(function() pcall(function() TweenService:Create(b,TweenInfo.new(0.12),{BackgroundColor3=T.SF}):Play() end) end)
     b.MouseButton1Click:Connect(cb)
     return b
 end
 
--- Botão 1: Animator
-HubBtn(
-    "Snow Animator Pro❄️",
-    "Blender-level Animation • 60FPS • Global/Local",
-    "🎬", 2,
-    function()
-        Hub.Visible = false
-        if SG:FindFirstChild("Anim") then
-            SG.Anim.Visible = true
-        end
-    end
-)
+HubBtn("Snow Animator Pro❄️","Blender-level Animator • 60FPS","🎬",2,function()
+    pcall(function() Hub.Visible=false end)
+    pcall(function() if SG:FindFirstChild("Anim") then SG.Anim.Visible=true end end)
+end)
+HubBtn("Snow Terrain Editor🏔️","Advanced Terrain Tools","🌍",3,function()
+    pcall(function() Hub.Visible=false end)
+    pcall(function() loadstring(game:HttpGet("https://pastebin.com/raw/mXCzAaSP",true))() end)
+end)
 
--- Botão 2: Terrain
-HubBtn(
-    "Snow Terrain Editor🏔️",
-    "Advanced Terrain Editing Tools",
-    "🌍", 3,
-    function()
-        Hub.Visible = false
-        pcall(function()
-            loadstring(game:HttpGet(
-                "https://pastebin.com/raw/mXCzAaSP",
-                true))()
-        end)
-    end
-)
+UI.Create("Frame", {Size=UDim2.new(0.9,0,0,1), BackgroundColor3=T.SL, BorderSizePixel=0, LayoutOrder=4, Parent=BC})
+UI.Create("TextLabel", {Size=UDim2.new(1,0,0,20), BackgroundTransparency=1, Text="📝 Custom Slots", TextColor3=T.WN, TextSize=13, Font=Enum.Font.GothamBold, TextXAlignment=Enum.TextXAlignment.Left, LayoutOrder=5, Parent=BC})
 
--- Separador
-UI.Create("Frame", {
-    Size = UDim2.new(0.9,0,0,1),
-    BackgroundColor3 = T.SL,
-    BorderSizePixel = 0,
-    LayoutOrder = 4,
-    Parent = BC
-})
-
-UI.Create("TextLabel", {
-    Size = UDim2.new(1,0,0,22),
-    BackgroundTransparency = 1,
-    Text = "📝 Custom Script Slots",
-    TextColor3 = T.WN,
-    TextSize = 14,
-    Font = Enum.Font.GothamBold,
-    TextXAlignment = Enum.TextXAlignment.Left,
-    LayoutOrder = 5,
-    Parent = BC
-})
-
--- 6 Custom Slots
-for i = 1, 6 do
-    local sf = UI.Create("Frame", {
-        Size = UDim2.new(1,-8,0,48),
-        BackgroundColor3 = T.SF,
-        LayoutOrder = 5+i,
-        Parent = BC
-    })
-    UI.Corner(sf, 8)
-    UI.Stroke(sf, T.SL, 1)
-    
-    UI.Create("TextLabel", {
-        Size = UDim2.new(0,25,1,0),
-        Position = UDim2.new(0,6,0,0),
-        BackgroundTransparency = 1,
-        Text = "📦",
-        TextSize = 16,
-        Parent = sf
-    })
-    
-    UI.Create("TextLabel", {
-        Size = UDim2.new(0,50,0,16),
-        Position = UDim2.new(0,32,0,3),
-        BackgroundTransparency = 1,
-        Text = "Slot "..i,
-        TextColor3 = T.TX,
-        TextSize = 12,
-        Font = Enum.Font.GothamBold,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        Parent = sf
-    })
-    
-    local lb = UI.Create("TextBox", {
-        Size = UDim2.new(0.5,0,0,22),
-        Position = UDim2.new(0,32,0,21),
-        BackgroundColor3 = Color3.fromRGB(15,17,25),
-        Text = "",
-        PlaceholderText = "loadstring...",
-        TextColor3 = T.TD,
-        TextSize = 9,
-        Font = Enum.Font.Code,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        ClearTextOnFocus = false,
-        Parent = sf
-    })
-    UI.Corner(lb, 5)
-    
-    local rb = UI.Create("TextButton", {
-        Size = UDim2.new(0,55,0,30),
-        Position = UDim2.new(1,-62,0.5,-15),
-        BackgroundColor3 = T.OK,
-        Text = "▶ Run",
-        TextColor3 = Color3.new(1,1,1),
-        TextSize = 11,
-        Font = Enum.Font.GothamBold,
-        Parent = sf
-    })
-    UI.Corner(rb, 7)
-    
-    rb.MouseButton1Click:Connect(function()
-        local c = lb.Text
-        if c and c ~= "" then
-            pcall(function()
-                loadstring(c)()
-            end)
-        end
-    end)
+for i=1,6 do
+    local sf = UI.Create("Frame", {Size=UDim2.new(1,-8,0,44), BackgroundColor3=T.SF, LayoutOrder=5+i, Parent=BC})
+    UI.Corner(sf, 7) UI.Stroke(sf, T.SL, 1)
+    UI.Create("TextLabel", {Size=UDim2.new(0,40,0,14), Position=UDim2.new(0,6,0,3), BackgroundTransparency=1, Text="📦 Slot "..i, TextColor3=T.TX, TextSize=10, Font=Enum.Font.GothamBold, TextXAlignment=Enum.TextXAlignment.Left, Parent=sf})
+    local lb = UI.Create("TextBox", {Size=UDim2.new(0.55,0,0,20), Position=UDim2.new(0,6,0,20), BackgroundColor3=Color3.fromRGB(15,17,25), Text="", PlaceholderText="loadstring...", TextColor3=T.TD, TextSize=8, Font=Enum.Font.Code, TextXAlignment=Enum.TextXAlignment.Left, ClearTextOnFocus=false, Parent=sf})
+    UI.Corner(lb, 4)
+    local rb = UI.Create("TextButton", {Size=UDim2.new(0,50,0,28), Position=UDim2.new(1,-56,0.5,-14), BackgroundColor3=T.OK, Text="▶Run", TextColor3=Color3.new(1,1,1), TextSize=10, Font=Enum.Font.GothamBold, Parent=sf})
+    UI.Corner(rb, 6)
+    rb.MouseButton1Click:Connect(function() local c=lb.Text if c and c~="" then pcall(function() loadstring(c)() end) end end)
 end
-
--- Footer
-UI.Create("TextLabel", {
-    Size = UDim2.new(1,0,0,18),
-    BackgroundTransparency = 1,
-    Text = "Made with ❄️ by Snow Hub Studios",
-    TextColor3 = Color3.fromRGB(55,60,75),
-    TextSize = 9,
-    Font = Enum.Font.Gotham,
-    LayoutOrder = 20,
-    Parent = BC
-})
 
 -- Drag Hub
-local hd, hdi, hds, hsp
+hd=false hdi=nil hds=nil hsp=nil
 Hub.InputBegan:Connect(function(inp)
-    if inp.UserInputType ==
-       Enum.UserInputType.MouseButton1 or
-       inp.UserInputType ==
-       Enum.UserInputType.Touch then
-        hd = true
-        hds = inp.Position
-        hsp = Hub.Position
-        inp.Changed:Connect(function()
-            if inp.UserInputState ==
-               Enum.UserInputState.End then
-                hd = false
-            end
-        end)
+    if inp.UserInputType==Enum.UserInputType.MouseButton1 or inp.UserInputType==Enum.UserInputType.Touch then
+        hd=true hds=inp.Position hsp=Hub.Position
+        inp.Changed:Connect(function() if inp.UserInputState==Enum.UserInputState.End then hd=false end end)
     end
 end)
-Hub.InputChanged:Connect(function(inp)
-    if inp.UserInputType ==
-       Enum.UserInputType.MouseMovement or
-       inp.UserInputType ==
-       Enum.UserInputType.Touch then
-        hdi = inp
-    end
-end)
-UserInputService.InputChanged:Connect(function(inp)
-    if inp == hdi and hd then
-        local d = inp.Position - hds
-        Hub.Position = UDim2.new(
-            hsp.X.Scale, hsp.X.Offset+d.X,
-            hsp.Y.Scale, hsp.Y.Offset+d.Y)
-    end
-end)
-
-print("❄️ Part 4/7 Loaded - Hub")
+Hub.InputChanged:Connect(function(inp) if inp.UserInputType==Enum.UserInputType.MouseMovement or inp.UserInputType==Enum.UserInputType.Touch then hdi=inp end end)
+UserInputService.InputChanged:Connect(function(inp) if inp==hdi and hd then local d=inp.Position-hds Hub.Position=UDim2.new(hsp.X.Scale,hsp.X.Offset+d.X,hsp.Y.Scale,hsp.Y.Offset+d.Y) end end)
+print("P4 OK")
 
 --[[
-    ╔══════════════════════════════════════════════╗
-    ║       Snow Hub Studios❄️ - PARTE 5/7        ║
-    ║   Animator Interface - Header & Toolbar      ║
-    ╚══════════════════════════════════════════════╝
+    Snow Hub Studios - PARTE 5/7
+    Animator Interface & Toolbar
 ]]
 
--- ============================================
--- ANIMATOR FRAME
--- ============================================
-local AF = UI.Create("Frame", {
-    Name = "Anim",
-    Size = UDim2.new(1,0,0,360),
-    Position = UDim2.new(0,0,1,-360),
-    BackgroundColor3 = T.BG,
-    BorderSizePixel = 0,
-    Visible = false,
-    Parent = SG
-})
+AF = UI.Create("Frame", {Name="Anim", Size=UDim2.new(1,0,0,350), Position=UDim2.new(0,0,1,-350), BackgroundColor3=T.BG, BorderSizePixel=0, Visible=false, Parent=SG})
 UI.Stroke(AF, T.SL, 1)
 
--- Header
-local AH = UI.Create("Frame", {
-    Size = UDim2.new(1,0,0,34),
-    BackgroundColor3 = Color3.fromRGB(18,20,30),
-    BorderSizePixel = 0,
-    Parent = AF
-})
+AH = UI.Create("Frame", {Size=UDim2.new(1,0,0,32), BackgroundColor3=Color3.fromRGB(18,20,30), BorderSizePixel=0, Parent=AF})
+UI.Create("TextLabel", {Size=UDim2.new(0,200,1,0), Position=UDim2.new(0,8,0,0), BackgroundTransparency=1, Text="❄️ Snow Animator Pro", TextColor3=T.SN, TextSize=13, Font=Enum.Font.GothamBold, TextXAlignment=Enum.TextXAlignment.Left, Parent=AH})
 
-UI.Create("TextLabel", {
-    Size = UDim2.new(0,220,1,0),
-    Position = UDim2.new(0,8,0,0),
-    BackgroundTransparency = 1,
-    Text = "❄️ Snow Animator Pro",
-    TextColor3 = T.SN,
-    TextSize = 14,
-    Font = Enum.Font.GothamBold,
-    TextXAlignment = Enum.TextXAlignment.Left,
-    Parent = AH
-})
-
--- Top buttons
-local tbx = 240
-
-local function TopBtn(txt)
-    local b = UI.Create("TextButton", {
-        Size = UDim2.new(0,68,0,22),
-        Position = UDim2.new(0,tbx,0,6),
-        BackgroundColor3 = T.SF,
-        Text = txt,
-        TextColor3 = T.TX,
-        TextSize = 11,
-        Font = Enum.Font.GothamBold,
-        Parent = AH
-    })
-    UI.Corner(b, 5)
-    tbx = tbx + 74
-    b.MouseEnter:Connect(function()
-        TweenService:Create(b,TweenInfo.new(0.12),
-            {BackgroundColor3=T.PR}):Play()
-    end)
-    b.MouseLeave:Connect(function()
-        TweenService:Create(b,TweenInfo.new(0.12),
-            {BackgroundColor3=T.SF}):Play()
-    end)
+tbx = 220
+function TopBtn(txt)
+    local b = UI.Create("TextButton", {Size=UDim2.new(0,62,0,20), Position=UDim2.new(0,tbx,0,6), BackgroundColor3=T.SF, Text=txt, TextColor3=T.TX, TextSize=10, Font=Enum.Font.GothamBold, Parent=AH})
+    UI.Corner(b, 5) tbx=tbx+68
+    b.MouseEnter:Connect(function() pcall(function() TweenService:Create(b,TweenInfo.new(0.1),{BackgroundColor3=T.PR}):Play() end) end)
+    b.MouseLeave:Connect(function() pcall(function() TweenService:Create(b,TweenInfo.new(0.1),{BackgroundColor3=T.SF}):Play() end) end)
     return b
 end
 
-local editBtn = TopBtn("📝Edit")
-local settBtn = TopBtn("⚙️Set")
-
--- View Mode
-local vmBtn = UI.Create("TextButton", {
-    Size = UDim2.new(0,82,0,22),
-    Position = UDim2.new(0,tbx,0,6),
-    BackgroundColor3 = T.OK,
-    Text = "Global🌎",
-    TextColor3 = Color3.new(1,1,1),
-    TextSize = 11,
-    Font = Enum.Font.GothamBold,
-    Parent = AH
-})
-UI.Corner(vmBtn, 5)
-tbx = tbx + 88
-
+editBtn = TopBtn("📝Edit")
+settBtn = TopBtn("⚙️Set")
+vmBtn = UI.Create("TextButton", {Size=UDim2.new(0,76,0,20), Position=UDim2.new(0,tbx,0,6), BackgroundColor3=T.OK, Text="Global🌎", TextColor3=Color3.new(1,1,1), TextSize=10, Font=Enum.Font.GothamBold, Parent=AH})
+UI.Corner(vmBtn, 5) tbx=tbx+82
 vmBtn.MouseButton1Click:Connect(function()
-    if Eng.ViewMode == "Global" then
-        Eng.ViewMode = "Local"
-        vmBtn.Text = "Local📍"
-        vmBtn.BackgroundColor3 = T.WN
-    else
-        Eng.ViewMode = "Global"
-        vmBtn.Text = "Global🌎"
-        vmBtn.BackgroundColor3 = T.OK
-    end
+    if Eng.ViewMode=="Global" then Eng.ViewMode="Local" vmBtn.Text="Local📍" vmBtn.BackgroundColor3=T.WN
+    else Eng.ViewMode="Global" vmBtn.Text="Global🌎" vmBtn.BackgroundColor3=T.OK end
 end)
-
--- FPS
-local fpsL = UI.Create("TextLabel", {
-    Size = UDim2.new(0,55,0,22),
-    Position = UDim2.new(0,tbx,0,6),
-    BackgroundColor3 = T.SF,
-    Text = "60FPS",
-    TextColor3 = T.AC,
-    TextSize = 10,
-    Font = Enum.Font.Code,
-    Parent = AH
-})
+fpsL = UI.Create("TextLabel", {Size=UDim2.new(0,48,0,20), Position=UDim2.new(0,tbx,0,6), BackgroundColor3=T.SF, Text="60FPS", TextColor3=T.AC, TextSize=9, Font=Enum.Font.Code, Parent=AH})
 UI.Corner(fpsL, 5)
-
--- Close/Minimize
-local clA = UI.Create("TextButton", {
-    Size = UDim2.new(0,26,0,22),
-    Position = UDim2.new(1,-34,0,6),
-    BackgroundColor3 = T.DN,
-    Text = "✕",
-    TextColor3 = Color3.new(1,1,1),
-    TextSize = 12,
-    Font = Enum.Font.GothamBold,
-    Parent = AH
-})
+clA = UI.Create("TextButton", {Size=UDim2.new(0,24,0,20), Position=UDim2.new(1,-30,0,6), BackgroundColor3=T.DN, Text="✕", TextColor3=Color3.new(1,1,1), TextSize=11, Font=Enum.Font.GothamBold, Parent=AH})
 UI.Corner(clA, 5)
 clA.MouseButton1Click:Connect(function()
-    AF.Visible = false
-    Hub.Visible = true
-    Hub.Size = UDim2.new(0,500,0,620)
-    Hub.Position = UDim2.new(0.5,-250,0.5,-310)
+    pcall(function() AF.Visible=false end)
+    pcall(function() Hub.Visible=true Hub.Size=UDim2.new(0,480,0,600) Hub.Position=UDim2.new(0.5,-240,0.5,-300) end)
 end)
+mnA = UI.Create("TextButton", {Size=UDim2.new(0,24,0,20), Position=UDim2.new(1,-60,0,6), BackgroundColor3=T.WN, Text="—", TextColor3=Color3.new(1,1,1), TextSize=11, Font=Enum.Font.GothamBold, Parent=AH})
+UI.Corner(mnA, 5) miniState=false
+mnA.MouseButton1Click:Connect(function() miniState=not miniState pcall(function() TweenService:Create(AF,TweenInfo.new(0.2),{Size=UDim2.new(1,0,0,miniState and 32 or 350)}):Play() end) end)
 
-local mnA = UI.Create("TextButton", {
-    Size = UDim2.new(0,26,0,22),
-    Position = UDim2.new(1,-66,0,6),
-    BackgroundColor3 = T.WN,
-    Text = "—",
-    TextColor3 = Color3.new(1,1,1),
-    TextSize = 12,
-    Font = Enum.Font.GothamBold,
-    Parent = AH
-})
-UI.Corner(mnA, 5)
-local mini = false
-mnA.MouseButton1Click:Connect(function()
-    mini = not mini
-    TweenService:Create(AF,
-        TweenInfo.new(0.25),
-        {Size=UDim2.new(1,0,0,mini and 34 or 360)}
-    ):Play()
-end)
-
--- ============================================
--- TOOLBAR (28 botões)
--- ============================================
-local TBF = UI.Create("Frame", {
-    Size = UDim2.new(1,0,0,40),
-    Position = UDim2.new(0,0,0,34),
-    BackgroundColor3 = Color3.fromRGB(22,25,35),
-    BorderSizePixel = 0,
-    Parent = AF
-})
-
-
-})
-UI.Create("UIListLayout", {
-    FillDirection = Enum.FillDirection.Horizontal,
-    Padding = UDim.new(0,3),
-    VerticalAlignment = Enum.VerticalAlignment.Center,
-    SortOrder = Enum.SortOrder.LayoutOrder,
-    Parent = TBS
-})
-
-
-})*7+12,46),0,30),
-        BackgroundColor3 = col or T.SF,
-        Text = txt,
-        TextColor3 = T.TX,
-        TextSize = 10,
-        Font = Enum.Font.GothamBold,
-        LayoutOrder = ord,
-        AutoButtonColor = false,
-        Parent = TBS
-    })
-    UI.Corner(b, 6)
-    b.MouseEnter:Connect(function()
-        TweenService:Create(b,TweenInfo.new(0.1),
-            {BackgroundColor3=T.PR}):Play()
-    end)
-    b.MouseLeave:Connect(function()
-        TweenService:Create(b,TweenInfo.new(0.1),
-            {BackgroundColor3=col or T.SF}):Play()
-    end)
-    b.MouseButton1Click:Connect(cb or function()end)
-    return b
-end
-
--- 1: Select Target (SEM ERROS)
-local selBtn = TB("🎯Select","",1,T.PU,function()end)
-
-local selectMode = false
-local selectConn1 = nil
-local selectConn2 = nil
-
-local function CleanupSelect()
-    selectMode = false
-    if selectConn1 then
-        pcall(function() selectConn1:Disconnect() end)
-        selectConn1 = nil
-    end
-    if selectConn2 then
-        pcall(function() selectConn2:Disconnect() end)
-        selectConn2 = nil
-    end
-end
-
-local function FindBestTarget(obj)
-    if not obj then return nil end
-    
-    -- Se clicou numa parte, tenta achar o Model pai
-    local current = obj
-    
-    -- Sobe até 5 níveis procurando Model
-    for i = 1, 5 do
-        if not current then break end
-        if current:IsA("Model") then
-            return current
-        end
-        current = current.Parent
-    end
-    
-    -- Se não achou Model, usa o próprio objeto
-    if obj:IsA("BasePart") then
-        -- Verifica se o pai é um Model
-        if obj.Parent and obj.Parent:IsA("Model") then
-            return obj.Parent
-        end
-        return obj
-    end
-    
-    -- GUI
-    if obj:IsA("GuiObject") then
-        return obj
-    end
-    if obj:IsA("ScreenGui") or 
-       obj:IsA("SurfaceGui") or
-       obj:IsA("BillboardGui") then
-        return obj
-    end
-    
-    -- Qualquer outro
-    return obj
-end
-
-local function ApplyTarget(tgt)
-    if not tgt then return end
-    
-    CleanupSelect()
-    
-    local name = "?"
-    pcall(function()
-        name = tgt.Name
-    end)
-    
-    local shortName = name
-    if #shortName > 7 then
-        shortName = shortName:sub(1, 7)
-    end
-    
-    Eng:ScanTarget(tgt)
-    selBtn.Text = "🎯" .. shortName
-    selBtn.BackgroundColor3 = T.OK
-    
-    -- Voltar cor após 1.5s
-    spawn(function()
-        wait(1.5)
-        if selBtn and selBtn.Parent then
-            selBtn.BackgroundColor3 = T.PU
-        end
-    end)
-end
-
-selBtn.MouseButton1Click:Connect(function()
-    if selectMode then
-        -- Cancelar seleção
-        CleanupSelect()
-        selBtn.Text = "🎯Select"
-        selBtn.BackgroundColor3 = T.PU
-        return
-    end
-    
-    -- Ativar modo de seleção
-    selectMode = true
-    selBtn.Text = "🎯Click..."
-    selBtn.BackgroundColor3 = T.WN
-    
-    -- MÉTODO: Click no mundo 3D
-    selectConn1 = Mouse.Button1Down:Connect(function()
-        local hit = nil
-        pcall(function()
-            hit = Mouse.Target
-        end)
-        
-        if hit then
-            local tgt = FindBestTarget(hit)
-            if tgt then
-                ApplyTarget(tgt)
-                return
-            end
-        end
-        
-        -- Se não clicou em nada válido
-        CleanupSelect()
-        selBtn.Text = "🎯Select"
-        selBtn.BackgroundColor3 = T.PU
-    end)
-    
-    -- MÉTODO 2: Detectar seleção do Explorer
-    -- Checa periodicamente se algo foi selecionado
-    spawn(function()
-        local checks = 0
-        while selectMode and checks < 200 do
-            checks = checks + 1
-            
-            local ok, result = pcall(function()
-                local sel = Selection:Get()
-                if sel and type(sel) == "table" and #sel > 0 then
-                    local item = sel[1]
-                    if item and typeof(item) == "Instance" then
-                        return item
-                    end
-                end
-                return nil
-            end)
-            
-            if ok and result then
-                local tgt = FindBestTarget(result)
-                if tgt then
-                    ApplyTarget(tgt)
-                    return
-                end
-            end
-            
-            wait(0.15)
-        end
-        
-        -- Timeout após 30 segundos
-        if selectMode then
-            CleanupSelect()
-            if selBtn and selBtn.Parent then
-                selBtn.Text = "🎯Select"
-                selBtn.BackgroundColor3 = T.PU
-            end
-        end
-    end)
-end)
-
--- 2: +KEY
-TB("+KEY","",2,T.KF,function()
-    Eng:AddKeyframe()
-end)
-
--- 3: VEL-
-TB("VEL-","",3,nil,function()
-    Eng.Speed = math.max(0.1,Eng.Speed-0.1)
-    Eng.Speed = math.floor(Eng.Speed*10+0.5)/10
-end)
-
--- 4: VEL+
-TB("VEL+","",4,nil,function()
-    Eng.Speed = math.min(10,Eng.Speed+0.1)
-    Eng.Speed = math.floor(Eng.Speed*10+0.5)/10
-end)
-
--- 5: Anim Type
-local ati = 1
-local atBtn = TB("Core","",5,T.CY,function()end)
-atBtn.MouseButton1Click:Connect(function()
-    ati = ati + 1
-    if ati > #Eng.AnimTypes then ati = 1 end
-    Eng.AnimType = Eng.AnimTypes[ati]
-    atBtn.Text = Eng.AnimType
-end)
-
--- 6: Undo
-TB("Undo↩️","",6,nil,function() Eng:Undo() end)
-
--- 7: Redo
-TB("Redo↪️","",7,nil,function() Eng:Redo() end)
-
--- 8: Copy
-TB("Copy📋","",8,nil,function() Eng:CopyKF() end)
-
--- 9: Paste
-TB("Paste📋","",9,nil,function() Eng:PasteKF() end)
-
--- 10: Clear
-TB("Clear🗑️","",10,T.DN,function() Eng:ClearAll() end)
-
--- 11: Interpolation
-local ipi = 1
-local ipBtn = TB("Linear","",11,nil,function()end)
-ipBtn.MouseButton1Click:Connect(function()
-    ipi = ipi + 1
-    if ipi > #Eng.InterpModes then ipi = 1 end
-    Eng.InterpMode = Eng.InterpModes[ipi]
-    ipBtn.Text = Eng.InterpMode
-end)
-
---[[
-    ╔══════════════════════════════════════════════╗
-    ║       Snow Hub Studios❄️ - PARTE 5/7        ║
-    ║   Animator Interface (CORRIGIDA)             ║
-    ╚══════════════════════════════════════════════╝
-]]
-
--- ============================================
--- ANIMATOR FRAME
--- ============================================
-local AF = UI.Create("Frame", {
-    Name = "Anim",
-    Size = UDim2.new(1, 0, 0, 360),
-    Position = UDim2.new(0, 0, 1, -360),
-    BackgroundColor3 = T.BG,
-    BorderSizePixel = 0,
-    Visible = false,
-    Parent = SG
-})
-UI.Stroke(AF, T.SL, 1)
-
--- Header
-local AH = UI.Create("Frame", {
-    Size = UDim2.new(1, 0, 0, 34),
-    BackgroundColor3 = Color3.fromRGB(18, 20, 30),
-    BorderSizePixel = 0,
-    Parent = AF
-})
-
-UI.Create("TextLabel", {
-    Size = UDim2.new(0, 220, 1, 0),
-    Position = UDim2.new(0, 8, 0, 0),
-    BackgroundTransparency = 1,
-    Text = "❄️ Snow Animator Pro",
-    TextColor3 = T.SN,
-    TextSize = 14,
-    Font = Enum.Font.GothamBold,
-    TextXAlignment = Enum.TextXAlignment.Left,
-    Parent = AH
-})
-
--- Top buttons
-local tbx = 240
-
-local function TopBtn(txt)
-    local b = UI.Create("TextButton", {
-        Size = UDim2.new(0, 68, 0, 22),
-        Position = UDim2.new(0, tbx, 0, 6),
-        BackgroundColor3 = T.SF,
-        Text = txt,
-        TextColor3 = T.TX,
-        TextSize = 11,
-        Font = Enum.Font.GothamBold,
-        Parent = AH
-    })
-    UI.Corner(b, 5)
-    tbx = tbx + 74
-    b.MouseEnter:Connect(function()
-        TweenService:Create(b, TweenInfo.new(0.12),
-            {BackgroundColor3 = T.PR}):Play()
-    end)
-    b.MouseLeave:Connect(function()
-        TweenService:Create(b, TweenInfo.new(0.12),
-            {BackgroundColor3 = T.SF}):Play()
-    end)
-    return b
-end
-
-local editBtn = TopBtn("📝Edit")
-local settBtn = TopBtn("⚙️Set")
-
--- View Mode
-local vmBtn = UI.Create("TextButton", {
-    Size = UDim2.new(0, 82, 0, 22),
-    Position = UDim2.new(0, tbx, 0, 6),
-    BackgroundColor3 = T.OK,
-    Text = "Global🌎",
-    TextColor3 = Color3.new(1, 1, 1),
-    TextSize = 11,
-    Font = Enum.Font.GothamBold,
-    Parent = AH
-})
-UI.Corner(vmBtn, 5)
-tbx = tbx + 88
-
-vmBtn.MouseButton1Click:Connect(function()
-    if Eng.ViewMode == "Global" then
-        Eng.ViewMode = "Local"
-        vmBtn.Text = "Local📍"
-        vmBtn.BackgroundColor3 = T.WN
-    else
-        Eng.ViewMode = "Global"
-        vmBtn.Text = "Global🌎"
-        vmBtn.BackgroundColor3 = T.OK
-    end
-end)
-
--- FPS
-local fpsL = UI.Create("TextLabel", {
-    Size = UDim2.new(0, 55, 0, 22),
-    Position = UDim2.new(0, tbx, 0, 6),
-    BackgroundColor3 = T.SF,
-    Text = "60FPS",
-    TextColor3 = T.AC,
-    TextSize = 10,
-    Font = Enum.Font.Code,
-    Parent = AH
-})
-UI.Corner(fpsL, 5)
-
--- Close
-local clA = UI.Create("TextButton", {
-    Size = UDim2.new(0, 26, 0, 22),
-    Position = UDim2.new(1, -34, 0, 6),
-    BackgroundColor3 = T.DN,
-    Text = "✕",
-    TextColor3 = Color3.new(1, 1, 1),
-    TextSize = 12,
-    Font = Enum.Font.GothamBold,
-    Parent = AH
-})
-UI.Corner(clA, 5)
-clA.MouseButton1Click:Connect(function()
-    AF.Visible = false
-    Hub.Visible = true
-    Hub.Size = UDim2.new(0, 500, 0, 620)
-    Hub.Position = UDim2.new(0.5, -250, 0.5, -310)
-end)
-
--- Minimize
-local mnA = UI.Create("TextButton", {
-    Size = UDim2.new(0, 26, 0, 22),
-    Position = UDim2.new(1, -66, 0, 6),
-    BackgroundColor3 = T.WN,
-    Text = "—",
-    TextColor3 = Color3.new(1, 1, 1),
-    TextSize = 12,
-    Font = Enum.Font.GothamBold,
-    Parent = AH
-})
-UI.Corner(mnA, 5)
-local mini = false
-mnA.MouseButton1Click:Connect(function()
-    mini = not mini
-    TweenService:Create(AF,
-        TweenInfo.new(0.25),
-        {Size = UDim2.new(1, 0, 0, mini and 34 or 360)}
-    ):Play()
-end)
-
--- ============================================
 -- TOOLBAR
--- ============================================
-local TBF = UI.Create("Frame", {
-    Size = UDim2.new(1, 0, 0, 40),
-    Position = UDim2.new(0, 0, 0, 34),
-    BackgroundColor3 = Color3.fromRGB(22, 25, 35),
-    BorderSizePixel = 0,
-    Parent = AF
-})
+TBF = UI.Create("Frame", {Size=UDim2.new(1,0,0,38), Position=UDim2.new(0,0,0,32), BackgroundColor3=Color3.fromRGB(22,25,35), BorderSizePixel=0, Parent=AF})
+TBS = UI.Create("ScrollingFrame", {Size=UDim2.new(1,-4,1,-4), Position=UDim2.new(0,2,0,2), BackgroundTransparency=1, ScrollBarThickness=4, ScrollBarImageColor3=T.PR, ScrollingDirection=Enum.ScrollingDirection.X, CanvasSize=UDim2.new(0,1800,0,0), Parent=TBF})
+pcall(function() TBS.ElasticBehavior=Enum.ElasticBehavior.Never end)
+UI.Create("UIListLayout", {FillDirection=Enum.FillDirection.Horizontal, Padding=UDim.new(0,3), VerticalAlignment=Enum.VerticalAlignment.Center, SortOrder=Enum.SortOrder.LayoutOrder, Parent=TBS})
 
-local TBS = UI.Create("ScrollingFrame", {
-    Size = UDim2.new(1, -6, 1, -4),
-    Position = UDim2.new(0, 3, 0, 2),
-    BackgroundTransparency = 1,
-    ScrollBarThickness = 4,
-    ScrollBarImageColor3 = T.PR,
-    ScrollingDirection = Enum.ScrollingDirection.X,
-    CanvasSize = UDim2.new(0, 1800, 0, 0),
-    Parent = TBF
-})
-pcall(function()
-    TBS.ElasticBehavior = Enum.ElasticBehavior.Never
-end)
-
-UI.Create("UIListLayout", {
-    FillDirection = Enum.FillDirection.Horizontal,
-    Padding = UDim.new(0, 3),
-    VerticalAlignment = Enum.VerticalAlignment.Center,
-    SortOrder = Enum.SortOrder.LayoutOrder,
-    Parent = TBS
-})
-
-local function TB(txt, ord, col, cb)
-    local b = UI.Create("TextButton", {
-        Size = UDim2.new(0,
-            math.max(#txt * 7 + 14, 48), 0, 30),
-        BackgroundColor3 = col or T.SF,
-        Text = txt,
-        TextColor3 = T.TX,
-        TextSize = 10,
-        Font = Enum.Font.GothamBold,
-        LayoutOrder = ord,
-        AutoButtonColor = false,
-        Parent = TBS
-    })
+function TB(txt, ord, col, cb)
+    local b = UI.Create("TextButton", {Size=UDim2.new(0,math.max(#txt*7+12,46),0,28), BackgroundColor3=col or T.SF, Text=txt, TextColor3=T.TX, TextSize=10, Font=Enum.Font.GothamBold, LayoutOrder=ord, AutoButtonColor=false, Parent=TBS})
     UI.Corner(b, 6)
-    b.MouseEnter:Connect(function()
-        TweenService:Create(b, TweenInfo.new(0.1),
-            {BackgroundColor3 = T.PR}):Play()
-    end)
-    b.MouseLeave:Connect(function()
-        TweenService:Create(b, TweenInfo.new(0.1),
-            {BackgroundColor3 = col or T.SF}):Play()
-    end)
-    if cb then
-        b.MouseButton1Click:Connect(cb)
-    end
+    b.MouseEnter:Connect(function() pcall(function() TweenService:Create(b,TweenInfo.new(0.1),{BackgroundColor3=T.PR}):Play() end) end)
+    b.MouseLeave:Connect(function() pcall(function() TweenService:Create(b,TweenInfo.new(0.1),{BackgroundColor3=col or T.SF}):Play() end) end)
+    if cb then b.MouseButton1Click:Connect(cb) end
     return b
 end
 
--- ============================================
--- SELECT TARGET (SEM ERROS)
--- ============================================
-local selBtn = TB("🎯Select", 1, T.PU, nil)
-
-local selectMode = false
-local selectConn = nil
-
-local function CleanSelect()
-    selectMode = false
-    if selectConn then
-        pcall(function()
-            selectConn:Disconnect()
-        end)
-        selectConn = nil
-    end
+-- SELECT
+selBtn = TB("🎯Select",1,T.PU,nil)
+selectMode=false selectConn=nil
+function CleanSel()
+    selectMode=false
+    if selectConn then pcall(function() selectConn:Disconnect() end) selectConn=nil end
 end
-
-local function FindTarget(obj)
+function FindTgt(obj)
     if not obj then return nil end
-    local current = obj
-    for i = 1, 5 do
-        if not current then break end
-        if current:IsA("Model") then
-            return current
-        end
-        current = current.Parent
-    end
-    if obj:IsA("BasePart") then
-        if obj.Parent and obj.Parent:IsA("Model") then
-            return obj.Parent
-        end
-        return obj
-    end
-    if obj:IsA("GuiObject") then return obj end
+    local cur=obj
+    for i=1,5 do if not cur then break end if cur:IsA("Model") then return cur end cur=cur.Parent end
+    if obj:IsA("BasePart") then if obj.Parent and obj.Parent:IsA("Model") then return obj.Parent end return obj end
     return obj
 end
-
-local function SetTarget(tgt)
+function SetTgt(tgt)
     if not tgt then return end
-    CleanSelect()
-    local name = "?"
-    pcall(function() name = tgt.Name end)
-    local short = name
-    if #short > 7 then
-        short = short:sub(1, 7)
-    end
+    CleanSel()
+    local nm="?" pcall(function() nm=tgt.Name end)
+    if #nm>7 then nm=nm:sub(1,7) end
     Eng:ScanTarget(tgt)
-    selBtn.Text = "🎯" .. short
-    selBtn.BackgroundColor3 = T.OK
-    spawn(function()
-        wait(1.5)
-        if selBtn and selBtn.Parent then
-            selBtn.BackgroundColor3 = T.PU
-        end
-    end)
+    selBtn.Text="🎯"..nm selBtn.BackgroundColor3=T.OK
+    spawn(function() wait(1.5) pcall(function() selBtn.BackgroundColor3=T.PU end) end)
 end
-
 selBtn.MouseButton1Click:Connect(function()
-    if selectMode then
-        CleanSelect()
-        selBtn.Text = "🎯Select"
-        selBtn.BackgroundColor3 = T.PU
-        return
-    end
-    
-    selectMode = true
-    selBtn.Text = "🎯Click..."
-    selBtn.BackgroundColor3 = T.WN
-    
-    -- Click no mundo 3D
-    selectConn = Mouse.Button1Down:Connect(function()
-        local hit = nil
-        pcall(function()
-            hit = Mouse.Target
-        end)
-        if hit then
-            local tgt = FindTarget(hit)
-            if tgt then
-                SetTarget(tgt)
-                return
-            end
-        end
-        CleanSelect()
-        selBtn.Text = "🎯Select"
-        selBtn.BackgroundColor3 = T.PU
+    if selectMode then CleanSel() selBtn.Text="🎯Select" selBtn.BackgroundColor3=T.PU return end
+    selectMode=true selBtn.Text="🎯Click..." selBtn.BackgroundColor3=T.WN
+    selectConn=Mouse.Button1Down:Connect(function()
+        local hit=nil pcall(function() hit=Mouse.Target end)
+        if hit then local tgt=FindTgt(hit) if tgt then SetTgt(tgt) return end end
+        CleanSel() selBtn.Text="🎯Select" selBtn.BackgroundColor3=T.PU
     end)
-    
-    -- Checagem do Explorer
     spawn(function()
-        local checks = 0
-        while selectMode and checks < 200 do
-            checks = checks + 1
-            local ok, result = pcall(function()
-                local sel = Selection:Get()
-                if sel and type(sel) == "table" and #sel > 0 then
-                    local item = sel[1]
-                    if item and typeof(item) == "Instance" then
-                        return item
-                    end
-                end
-                return nil
+        local ck=0
+        while selectMode and ck<200 do ck=ck+1
+            local ok,r=pcall(function()
+                if Selection then local sel=Selection:Get() if sel and type(sel)=="table" and #sel>0 then local it=sel[1] if it and typeof(it)=="Instance" then return it end end end return nil
             end)
-            if ok and result then
-                local tgt = FindTarget(result)
-                if tgt then
-                    SetTarget(tgt)
-                    return
-                end
-            end
+            if ok and r then local tgt=FindTgt(r) if tgt then SetTgt(tgt) return end end
             wait(0.15)
         end
-        if selectMode then
-            CleanSelect()
-            pcall(function()
-                selBtn.Text = "🎯Select"
-                selBtn.BackgroundColor3 = T.PU
-            end)
-        end
+        if selectMode then CleanSel() pcall(function() selBtn.Text="🎯Select" selBtn.BackgroundColor3=T.PU end) end
     end)
 end)
 
--- ============================================
--- TODOS OS BOTÕES DA TOOLBAR
--- ============================================
+TB("+KEY",2,T.KF,function() Eng:AddKeyframe() end)
+TB("VEL-",3,nil,function() Eng.Speed=math.max(0.1,Eng.Speed-0.1) Eng.Speed=math.floor(Eng.Speed*10+0.5)/10 end)
+TB("VEL+",4,nil,function() Eng.Speed=math.min(10,Eng.Speed+0.1) Eng.Speed=math.floor(Eng.Speed*10+0.5)/10 end)
 
--- 2: +KEY
-TB("+KEY", 2, T.KF, function()
-    Eng:AddKeyframe()
+ati=1
+atBtn=TB("Core",5,T.CY,nil)
+atBtn.MouseButton1Click:Connect(function() ati=ati+1 if ati>#Eng.AnimTypes then ati=1 end Eng.AnimType=Eng.AnimTypes[ati] atBtn.Text=Eng.AnimType end)
+
+TB("Undo↩️",6,nil,function() Eng:Undo() end)
+TB("Redo↪️",7,nil,function() Eng:Redo() end)
+TB("Copy📋",8,nil,function() Eng:CopyKF() end)
+TB("Paste📋",9,nil,function() Eng:PasteKF() end)
+TB("Clear🗑️",10,T.DN,function() Eng:ClearAll() end)
+
+ipi=1
+ipBtn=TB("Linear",11,nil,nil)
+ipBtn.MouseButton1Click:Connect(function() ipi=ipi+1 if ipi>#Eng.InterpModes then ipi=1 end Eng.InterpMode=Eng.InterpModes[ipi] ipBtn.Text=Eng.InterpMode end)
+
+TB("Mirror🪞",12,nil,function() Eng:MirrorKF() end)
+TB("Rev⏪",13,nil,function() Eng:ReverseKFs() end)
+
+loopBtn=TB("Loop🔁",14,nil,nil)
+loopBtn.MouseButton1Click:Connect(function() Eng.IsLooping=not Eng.IsLooping if Eng.IsLooping then loopBtn.BackgroundColor3=T.OK loopBtn.Text="Loop✅" else loopBtn.BackgroundColor3=T.SF loopBtn.Text="Loop🔁" end end)
+
+TB("Dup📑",15,nil,function() Eng:DupKF(Eng.CurrentTime,Eng.CurrentTime+0.5) end)
+TB("Scale⏱️",16,nil,function() Eng:ScaleTime(1.5) end)
+
+snapBtn=TB("Snap📐",17,nil,nil)
+snapBtn.MouseButton1Click:Connect(function() Eng.SnapGrid=not Eng.SnapGrid snapBtn.BackgroundColor3=Eng.SnapGrid and T.OK or T.SF end)
+
+akBtn=TB("AutoKey🔑",18,nil,nil)
+akBtn.MouseButton1Click:Connect(function() Eng.AutoKey=not Eng.AutoKey akBtn.BackgroundColor3=Eng.AutoKey and T.WN or T.SF end)
+
+onBtn=TB("Onion🧅",19,nil,nil)
+onBtn.MouseButton1Click:Connect(function() Eng.OnionSkin=not Eng.OnionSkin onBtn.BackgroundColor3=Eng.OnionSkin and T.PU or T.SF end)
+
+TB("Mark📌",20,nil,function() Eng:AddMarker(Eng.CurrentTime,"M"..(#Eng.Markers+1)) end)
+
+edi=1
+edBtn=TB("InOut",21,nil,nil)
+edBtn.MouseButton1Click:Connect(function() edi=edi+1 if edi>#Eng.EasingDirs then edi=1 end Eng.EasingDir=Eng.EasingDirs[edi] edBtn.Text=Eng.EasingDir end)
+
+TB("Ghost👻",22,nil,function() end)
+TB("DelKF❌",23,nil,function() Eng:RemoveKFAt(Eng.CurrentTime) end)
+TB("MvKF➡️",24,nil,function()
+    for _,kf in ipairs(Eng.Keyframes) do if math.abs(kf.time-Eng.CurrentTime)<0.05 then Eng:PushUndo() kf.time=kf.time+0.1 break end end
+    table.sort(Eng.Keyframes,function(a,b) return a.time<b.time end)
 end)
+TB("Reset🔄",25,nil,function() Eng:ResetPose() end)
+TB("Save💾",26,T.OK,function() pcall(function() if SG:FindFirstChild("SaveM") then SG.SaveM.Visible=not SG.SaveM.Visible end end) end)
+TB("Export📤",27,T.AC,function() pcall(function() if SG:FindFirstChild("ExpM") then SG.ExpM.Visible=not SG.ExpM.Visible end end) end)
+TB("CE🖋️",28,T.CY,function() pcall(function() if SG:FindFirstChild("CurveEd") then SG.CurveEd.Visible=not SG.CurveEd.Visible end end) end)
 
--- 3: VEL-
-TB("VEL-", 3, nil, function()
-    Eng.Speed = math.max(0.1, Eng.Speed - 0.1)
-    Eng.Speed = math.floor(Eng.Speed * 10 + 0.5) / 10
+spawn(function() wait(0.1)
+    local tw=0 for _,ch in ipairs(TBS:GetChildren()) do if ch:IsA("TextButton") then tw=tw+ch.Size.X.Offset+3 end end
+    TBS.CanvasSize=UDim2.new(0,tw+20,0,0)
 end)
-
--- 4: VEL+
-TB("VEL+", 4, nil, function()
-    Eng.Speed = math.min(10, Eng.Speed + 0.1)
-    Eng.Speed = math.floor(Eng.Speed * 10 + 0.5) / 10
-end)
-
--- 5: Anim Type
-local ati = 1
-local atBtn = TB("Core", 5, T.CY, nil)
-atBtn.MouseButton1Click:Connect(function()
-    ati = ati + 1
-    if ati > #Eng.AnimTypes then ati = 1 end
-    Eng.AnimType = Eng.AnimTypes[ati]
-    atBtn.Text = Eng.AnimType
-end)
-
--- 6: Undo
-TB("Undo↩️", 6, nil, function() Eng:Undo() end)
-
--- 7: Redo
-TB("Redo↪️", 7, nil, function() Eng:Redo() end)
-
--- 8: Copy
-TB("Copy📋", 8, nil, function() Eng:CopyKF() end)
-
--- 9: Paste
-TB("Paste📋", 9, nil, function() Eng:PasteKF() end)
-
--- 10: Clear
-TB("Clear🗑️", 10, T.DN, function() Eng:ClearAll() end)
-
--- 11: Interpolation
-local ipi = 1
-local ipBtn = TB("Linear", 11, nil, nil)
-ipBtn.MouseButton1Click:Connect(function()
-    ipi = ipi + 1
-    if ipi > #Eng.InterpModes then ipi = 1 end
-    Eng.InterpMode = Eng.InterpModes[ipi]
-    ipBtn.Text = Eng.InterpMode
-end)
-
--- 12: Mirror
-TB("Mirror🪞", 12, nil, function() Eng:Mirror() end)
-
--- 13: Reverse
-TB("Rev⏪", 13, nil, function() Eng:Reverse() end)
-
--- 14: Loop
-local loopBtn = TB("Loop🔁", 14, nil, nil)
-loopBtn.MouseButton1Click:Connect(function()
-    Eng.IsLooping = not Eng.IsLooping
-    if Eng.IsLooping then
-        loopBtn.BackgroundColor3 = T.OK
-        loopBtn.Text = "Loop✅"
-    else
-        loopBtn.BackgroundColor3 = T.SF
-        loopBtn.Text = "Loop🔁"
-    end
-end)
-
--- 15: Duplicate
-TB("Dup📑", 15, nil, function()
-    Eng:DupKF(Eng.CurrentTime, Eng.CurrentTime + 0.5)
-end)
-
--- 16: Scale
-TB("Scale⏱️", 16, nil, function()
-    Eng:ScaleTime(1.5)
-end)
-
--- 17: Snap
-local snapBtn = TB("Snap📐", 17, nil, nil)
-snapBtn.MouseButton1Click:Connect(function()
-    Eng.SnapGrid = not Eng.SnapGrid
-    if Eng.SnapGrid then
-        snapBtn.BackgroundColor3 = T.OK
-    else
-        snapBtn.BackgroundColor3 = T.SF
-    end
-end)
-
--- 18: AutoKey
-local akBtn = TB("AutoKey🔑", 18, nil, nil)
-akBtn.MouseButton1Click:Connect(function()
-    Eng.AutoKey = not Eng.AutoKey
-    if Eng.AutoKey then
-        akBtn.BackgroundColor3 = T.WN
-    else
-        akBtn.BackgroundColor3 = T.SF
-    end
-end)
-
--- 19: Onion
-local onBtn = TB("Onion🧅", 19, nil, nil)
-onBtn.MouseButton1Click:Connect(function()
-    Eng.OnionSkin = not Eng.OnionSkin
-    if Eng.OnionSkin then
-        onBtn.BackgroundColor3 = T.PU
-    else
-        onBtn.BackgroundColor3 = T.SF
-    end
-end)
-
--- 20: Marker
-TB("Mark📌", 20, nil, function()
-    Eng:AddMarker(Eng.CurrentTime, "M" .. (#Eng.Markers + 1))
-end)
-
--- 21: Easing Dir
-local edi = 1
-local edBtn = TB("InOut", 21, nil, nil)
-edBtn.MouseButton1Click:Connect(function()
-    edi = edi + 1
-    if edi > #Eng.EasingDirs then edi = 1 end
-    Eng.EasingDir = Eng.EasingDirs[edi]
-    edBtn.Text = Eng.EasingDir
-end)
-
--- 22: Ghost
-TB("Ghost👻", 22, nil, function() end)
-
--- 23: Delete KF
-TB("DelKF❌", 23, nil, function()
-    Eng:RemoveKFAt(Eng.CurrentTime)
-end)
-
--- 24: Move KF
-TB("MvKF➡️", 24, nil, function()
-    for _, kf in ipairs(Eng.Keyframes) do
-        if math.abs(kf.time - Eng.CurrentTime) < 0.05 then
-            Eng:PushUndo()
-            kf.time = kf.time + 0.1
-            break
-        end
-    end
-    table.sort(Eng.Keyframes, function(a, b)
-        return a.time < b.time
-    end)
-end)
-
--- 25: Reset
-TB("Reset🔄", 25, nil, function()
-    Eng:ResetPose()
-end)
-
--- 26: Save
-TB("Save💾", 26, T.OK, function()
-    if SG:FindFirstChild("SaveM") then
-        SG.SaveM.Visible = not SG.SaveM.Visible
-    end
-end)
-
--- 27: Export
-TB("Export📤", 27, T.AC, function()
-    if SG:FindFirstChild("ExpM") then
-        SG.ExpM.Visible = not SG.ExpM.Visible
-    end
-end)
-
--- 28: Curve Editor
-TB("CE🖋️", 28, T.CY, function()
-    if SG:FindFirstChild("CurveEd") then
-        SG.CurveEd.Visible = not SG.CurveEd.Visible
-    end
-end)
-
--- Recalcular canvas size da toolbar
-spawn(function()
-    wait(0.1)
-    local totalW = 0
-    for _, ch in ipairs(TBS:GetChildren()) do
-        if ch:IsA("TextButton") then
-            totalW = totalW + ch.Size.X.Offset + 3
-        end
-    end
-    TBS.CanvasSize = UDim2.new(0, totalW + 20, 0, 0)
-end)
-
-print("❄️ Part 5/7 Loaded - Animator Interface")
-
+print("P5 OK")
 
 --[[
-    ╔══════════════════════════════════════════════╗
-    ║       Snow Hub Studios❄️ - PARTE 6/7        ║
-    ║     Timeline, Playback & Joint Panel         ║
-    ╚══════════════════════════════════════════════╝
+    Snow Hub Studios - PARTE 6/7
+    Timeline, Playback & Panels
 ]]
 
--- ============================================
--- TIMELINE
--- ============================================
-local TLF = UI.Create("Frame", {
-    Size = UDim2.new(1,0,0,120),
-    Position = UDim2.new(0,0,0,74),
-    BackgroundColor3 = T.TL,
-    BorderSizePixel = 0,
-    Parent = AF
-})
+TLF = UI.Create("Frame", {Size=UDim2.new(1,0,0,110), Position=UDim2.new(0,0,0,70), BackgroundColor3=T.TL, BorderSizePixel=0, Parent=AF})
+TLH = UI.Create("Frame", {Size=UDim2.new(1,0,0,20), BackgroundColor3=Color3.fromRGB(18,20,30), BorderSizePixel=0, Parent=TLF})
+timeDisp = UI.Create("TextLabel", {Size=UDim2.new(0,260,1,0), Position=UDim2.new(0,6,0,0), BackgroundTransparency=1, Text="T:0.000s Spd:1.0x KFs:0", TextColor3=T.AC, TextSize=9, Font=Enum.Font.Code, TextXAlignment=Enum.TextXAlignment.Left, Parent=TLH})
+jntDisp = UI.Create("TextLabel", {Size=UDim2.new(0,180,1,0), Position=UDim2.new(0,280,0,0), BackgroundTransparency=1, Text="J:0 Tgt:None", TextColor3=T.TD, TextSize=9, Font=Enum.Font.Code, TextXAlignment=Enum.TextXAlignment.Left, Parent=TLH})
 
--- Header
-local TLH = UI.Create("Frame", {
-    Size = UDim2.new(1,0,0,22),
-    BackgroundColor3 = Color3.fromRGB(18,20,30),
-    BorderSizePixel = 0,
-    Parent = TLF
-})
+TLR = UI.Create("Frame", {Size=UDim2.new(1,0,0,14), Position=UDim2.new(0,0,0,20), BackgroundColor3=Color3.fromRGB(28,31,42), BorderSizePixel=0, Parent=TLF})
+pps = 100
+TLS = UI.Create("ScrollingFrame", {Size=UDim2.new(1,0,0,74), Position=UDim2.new(0,0,0,34), BackgroundColor3=Color3.fromRGB(20,22,32), ScrollBarThickness=3, ScrollBarImageColor3=T.PR, ScrollingDirection=Enum.ScrollingDirection.X, CanvasSize=UDim2.new(0,3000,0,0), BorderSizePixel=0, Parent=TLF})
+pcall(function() TLS.ElasticBehavior=Enum.ElasticBehavior.Never end)
 
-local timeDisp = UI.Create("TextLabel", {
-    Size = UDim2.new(0,280,1,0),
-    Position = UDim2.new(0,8,0,0),
-    BackgroundTransparency = 1,
-    Text = "T:0.000s Spd:1.0x KFs:0",
-    TextColor3 = T.AC,
-    TextSize = 10,
-    Font = Enum.Font.Code,
-    TextXAlignment = Enum.TextXAlignment.Left,
-    Parent = TLH
-})
-
-local jntDisp = UI.Create("TextLabel", {
-    Size = UDim2.new(0,200,1,0),
-    Position = UDim2.new(0,300,0,0),
-    BackgroundTransparency = 1,
-    Text = "J:0 Tgt:None",
-    TextColor3 = T.TD,
-    TextSize = 10,
-    Font = Enum.Font.Code,
-    TextXAlignment = Enum.TextXAlignment.Left,
-    Parent = TLH
-})
-
--- Ruler
-local TLR = UI.Create("Frame", {
-    Size = UDim2.new(1,0,0,16),
-    Position = UDim2.new(0,0,0,22),
-    BackgroundColor3 = Color3.fromRGB(28,31,42),
-    BorderSizePixel = 0,
-    Parent = TLF
-})
-
--- Scroll
-local pps = 100
-local TLS = UI.Create("ScrollingFrame", {
-    Size = UDim2.new(1,0,0,80),
-    Position = UDim2.new(0,0,0,38),
-    BackgroundColor3 = Color3.fromRGB(20,22,32),
-    ScrollBarThickness = 3,
-    ScrollBarImageColor3 = T.PR,
-    ScrollingDirection = Enum.ScrollingDirection.X,
-    CanvasSize = UDim2.new(0,3000,0,0),
-    BorderSizePixel = 0,
-    Parent = TLF
-})
-
--- Ruler ticks
-for i = 0, 30 do
-    local xp = i * pps
-    UI.Create("Frame", {
-        Size = UDim2.new(0,1,0.5,0),
-        Position = UDim2.new(0,xp,0.5,0),
-        BackgroundColor3 = T.TD,
-        BorderSizePixel = 0,
-        Parent = TLR
-    })
-    UI.Create("TextLabel", {
-        Size = UDim2.new(0,24,0,10),
-        Position = UDim2.new(0,xp-12,0,1),
-        BackgroundTransparency = 1,
-        Text = i.."s",
-        TextColor3 = T.TD,
-        TextSize = 8,
-        Font = Enum.Font.Code,
-        Parent = TLR
-    })
-    for j = 1, 9 do
-        UI.Create("Frame", {
-            Size = UDim2.new(0,1,0.25,0),
-            Position = UDim2.new(0,
-                xp+j*(pps/10),0.75,0),
-            BackgroundColor3 =
-                Color3.fromRGB(40,43,55),
-            BorderSizePixel = 0,
-            Parent = TLR
-        })
-    end
+for i=0,30 do
+    local xp=i*pps
+    UI.Create("Frame", {Size=UDim2.new(0,1,0.5,0), Position=UDim2.new(0,xp,0.5,0), BackgroundColor3=T.TD, BorderSizePixel=0, Parent=TLR})
+    UI.Create("TextLabel", {Size=UDim2.new(0,20,0,10), Position=UDim2.new(0,xp-10,0,0), BackgroundTransparency=1, Text=i.."s", TextColor3=T.TD, TextSize=7, Font=Enum.Font.Code, Parent=TLR})
 end
 
--- Playhead
-local PH = UI.Create("Frame", {
-    Size = UDim2.new(0,2,1,0),
-    Position = UDim2.new(0,0,0,0),
-    BackgroundColor3 = T.DN,
-    BorderSizePixel = 0,
-    ZIndex = 10,
-    Parent = TLS
-})
-local PHT = UI.Create("Frame", {
-    Size = UDim2.new(0,10,0,10),
-    Position = UDim2.new(0.5,-5,0,-1),
-    BackgroundColor3 = T.DN,
-    ZIndex = 11,
-    Parent = PH
-})
+PH = UI.Create("Frame", {Size=UDim2.new(0,2,1,0), Position=UDim2.new(0,0,0,0), BackgroundColor3=T.DN, BorderSizePixel=0, ZIndex=10, Parent=TLS})
+PHT = UI.Create("Frame", {Size=UDim2.new(0,10,0,10), Position=UDim2.new(0.5,-5,0,-1), BackgroundColor3=T.DN, ZIndex=11, Parent=PH})
 UI.Corner(PHT, 3)
 
--- KF diamonds
-local kfDiamonds = {}
-
-local function UpdateTL()
-    for _, d in ipairs(kfDiamonds) do
-        if d and d.Parent then d:Destroy() end
-    end
+kfDiamonds = {}
+function UpdateTL()
+    for _,d in ipairs(kfDiamonds) do pcall(function() if d and d.Parent then d:Destroy() end end) end
     kfDiamonds = {}
-    
-    for _, kf in ipairs(Eng.Keyframes) do
-        local xp = kf.time * pps
-        local dm = UI.Create("TextButton", {
-            Size = UDim2.new(0,12,0,12),
-            Position = UDim2.new(0,xp-6,0.5,-6),
-            BackgroundColor3 = T.KF,
-            Rotation = 45,
-            Text = "",
-            ZIndex = 8,
-            Parent = TLS
-        })
-        UI.Corner(dm, 2)
-        dm.MouseButton1Click:Connect(function()
-            Eng.CurrentTime = kf.time
+    for _,kf in ipairs(Eng.Keyframes) do
+        local xp=kf.time*pps
+        local dm = UI.Create("TextButton", {Size=UDim2.new(0,12,0,12), Position=UDim2.new(0,xp-6,0.5,-6), BackgroundColor3=T.KF, Rotation=45, Text="", ZIndex=8, Parent=TLS})
+        if dm then
+            UI.Corner(dm, 2)
+            dm.MouseButton1Click:Connect(function() Eng.CurrentTime=kf.time Eng:GoTo(Eng.CurrentTime) end)
+            dm.MouseEnter:Connect(function() pcall(function() dm.BackgroundColor3=T.KS end) end)
+            dm.MouseLeave:Connect(function() pcall(function() dm.BackgroundColor3=T.KF end) end)
+            table.insert(kfDiamonds, dm)
+        end
+    end
+    for _,m in ipairs(Eng.Markers) do
+        local ml = UI.Create("Frame", {Size=UDim2.new(0,1,1,0), Position=UDim2.new(0,m.time*pps,0,0), BackgroundColor3=m.color, BackgroundTransparency=0.4, BorderSizePixel=0, ZIndex=7, Parent=TLS})
+        if ml then table.insert(kfDiamonds, ml) end
+    end
+    pcall(function() PH.Position=UDim2.new(0,Eng.CurrentTime*pps,0,0) end)
+    pcall(function() timeDisp.Text=string.format("T:%.3fs Spd:%.1fx KFs:%d", Eng.CurrentTime, Eng.Speed, #Eng.Keyframes) end)
+    pcall(function()
+        local tn = "None"
+        if Eng.Target then pcall(function() tn=Eng.Target.Name end) if #tn>10 then tn=tn:sub(1,10) end end
+        jntDisp.Text=string.format("J:%d Tgt:%s", #Eng.AllJoints, tn)
+    end)
+end
+
+TLS.InputBegan:Connect(function(inp)
+    if inp.UserInputType==Enum.UserInputType.MouseButton1 or inp.UserInputType==Enum.UserInputType.Touch then
+        pcall(function()
+            local rx=inp.Position.X-TLS.AbsolutePosition.X+TLS.CanvasPosition.X
+            Eng.CurrentTime=math.max(0,rx/pps)
             Eng:GoTo(Eng.CurrentTime)
         end)
-        dm.MouseEnter:Connect(function()
-            dm.BackgroundColor3 = T.KS
-        end)
-        dm.MouseLeave:Connect(function()
-            dm.BackgroundColor3 = T.KF
-        end)
-        table.insert(kfDiamonds, dm)
     end
-    
-    -- Markers
-    for _, m in ipairs(Eng.Markers) do
-        local xp = m.time * pps
-        local ml = UI.Create("Frame", {
-            Size = UDim2.new(0,1,1,0),
-            Position = UDim2.new(0,xp,0,0),
-            BackgroundColor3 = m.color,
-            BackgroundTransparency = 0.4,
-            BorderSizePixel = 0,
-            ZIndex = 7,
-            Parent = TLS
-        })
-        table.insert(kfDiamonds, ml)
-    end
-    
-    PH.Position = UDim2.new(0,
-        Eng.CurrentTime*pps,0,0)
-    
-    timeDisp.Text = string.format(
-        "T:%.3fs Spd:%.1fx KFs:%d",
-        Eng.CurrentTime, Eng.Speed,
-        #Eng.Keyframes)
-    jntDisp.Text = string.format(
-        "J:%d Tgt:%s",
-        #Eng.AllJoints,
-        Eng.Target and
-            Eng.Target.Name:sub(1,10) or "None")
+end)
+
+-- PLAYBACK
+PBF = UI.Create("Frame", {Size=UDim2.new(1,0,0,36), Position=UDim2.new(0,0,0,180), BackgroundColor3=Color3.fromRGB(18,20,30), BorderSizePixel=0, Parent=AF})
+UI.Create("UIListLayout", {FillDirection=Enum.FillDirection.Horizontal, HorizontalAlignment=Enum.HorizontalAlignment.Center, VerticalAlignment=Enum.VerticalAlignment.Center, Padding=UDim.new(0,4), Parent=PBF})
+
+function PBBtn(txt,sz,col,cb)
+    local b = UI.Create("TextButton", {Size=UDim2.new(0,sz,0,26), BackgroundColor3=col, Text=txt, TextColor3=Color3.new(1,1,1), TextSize=14, Font=Enum.Font.GothamBold, Parent=PBF})
+    UI.Corner(b, 6) b.MouseButton1Click:Connect(cb) return b
 end
 
--- Click timeline
-TLS.InputBegan:Connect(function(inp)
-    if inp.UserInputType ==
-       Enum.UserInputType.MouseButton1 or
-       inp.UserInputType ==
-       Enum.UserInputType.Touch then
-        local rx = inp.Position.X -
-            TLS.AbsolutePosition.X +
-            TLS.CanvasPosition.X
-        Eng.CurrentTime = math.max(0, rx/pps)
-        Eng:GoTo(Eng.CurrentTime)
-    end
-end)
-
--- ============================================
--- PLAYBACK CONTROLS
--- ============================================
-local PBF = UI.Create("Frame", {
-    Size = UDim2.new(1,0,0,38),
-    Position = UDim2.new(0,0,0,194),
-    BackgroundColor3 = Color3.fromRGB(18,20,30),
-    BorderSizePixel = 0,
-    Parent = AF
-})
-UI.Create("UIListLayout", {
-    FillDirection = Enum.FillDirection.Horizontal,
-    HorizontalAlignment =
-        Enum.HorizontalAlignment.Center,
-    VerticalAlignment =
-        Enum.VerticalAlignment.Center,
-    Padding = UDim.new(0,5),
-    Parent = PBF
-})
-
-local function PBBtn(txt, sz, col, cb)
-    local b = UI.Create("TextButton", {
-        Size = UDim2.new(0,sz,0,28),
-        BackgroundColor3 = col,
-        Text = txt,
-        TextColor3 = Color3.new(1,1,1),
-        TextSize = 15,
-        Font = Enum.Font.GothamBold,
-        Parent = PBF
-    })
-    UI.Corner(b, 7)
-    b.MouseButton1Click:Connect(cb)
-    return b
-end
-
-PBBtn("⏮",36,T.SF,function()
-    Eng.CurrentTime=0; Eng:GoTo(0)
-end)
-PBBtn("⏪",36,T.SF,function()
-    Eng.CurrentTime = math.max(0,
-        Eng.CurrentTime-1/Eng.FPS)
-    Eng:GoTo(Eng.CurrentTime)
-end)
-
-local playBtn = PBBtn("▶",48,T.OK,function()end)
+PBBtn("⏮",34,T.SF,function() Eng.CurrentTime=0 Eng:GoTo(0) end)
+PBBtn("⏪",34,T.SF,function() Eng.CurrentTime=math.max(0,Eng.CurrentTime-1/Eng.FPS) Eng:GoTo(Eng.CurrentTime) end)
+playBtn=PBBtn("▶",44,T.OK,nil)
 playBtn.MouseButton1Click:Connect(function()
-    if Eng.IsPlaying then
-        Eng:Pause()
-        playBtn.Text = "▶"
-        playBtn.BackgroundColor3 = T.OK
-    else
-        Eng:Play()
-        playBtn.Text = "⏸"
-        playBtn.BackgroundColor3 = T.WN
-    end
+    if Eng.IsPlaying then Eng:Pause() playBtn.Text="▶" playBtn.BackgroundColor3=T.OK
+    else Eng:Play() playBtn.Text="⏸" playBtn.BackgroundColor3=T.WN end
 end)
-
-PBBtn("⏹",40,T.DN,function()
-    Eng:Stop()
-    Eng.CurrentTime=0; Eng:GoTo(0)
-    playBtn.Text = "▶"
-    playBtn.BackgroundColor3 = T.OK
-end)
-PBBtn("⏩",36,T.SF,function()
-    Eng.CurrentTime = Eng.CurrentTime+1/Eng.FPS
-    Eng:GoTo(Eng.CurrentTime)
-end)
-PBBtn("⏭",36,T.SF,function()
-    Eng.CurrentTime = Eng:GetMaxTime()
-    Eng:GoTo(Eng.CurrentTime)
-end)
-
-local spdDisp = UI.Create("TextLabel", {
-    Size = UDim2.new(0,55,0,24),
-    BackgroundColor3 = T.SF,
-    Text = "1.0x",
-    TextColor3 = T.AC,
-    TextSize = 12,
-    Font = Enum.Font.Code,
-    Parent = PBF
-})
+PBBtn("⏹",38,T.DN,function() Eng:Stop() Eng.CurrentTime=0 Eng:GoTo(0) playBtn.Text="▶" playBtn.BackgroundColor3=T.OK end)
+PBBtn("⏩",34,T.SF,function() Eng.CurrentTime=Eng.CurrentTime+1/Eng.FPS Eng:GoTo(Eng.CurrentTime) end)
+PBBtn("⏭",34,T.SF,function() Eng.CurrentTime=Eng:GetMaxTime() Eng:GoTo(Eng.CurrentTime) end)
+spdDisp = UI.Create("TextLabel", {Size=UDim2.new(0,50,0,22), BackgroundColor3=T.SF, Text="1.0x", TextColor3=T.AC, TextSize=11, Font=Enum.Font.Code, Parent=PBF})
 UI.Corner(spdDisp, 5)
 
--- ============================================
 -- JOINT PANEL
--- ============================================
-local JP = UI.Create("Frame", {
-    Size = UDim2.new(0,180,0,115),
-    Position = UDim2.new(0,0,0,232),
-    BackgroundColor3 = Color3.fromRGB(22,25,35),
-    BorderSizePixel = 0,
-    Parent = AF
-})
+JP = UI.Create("Frame", {Size=UDim2.new(0,170,0,130), Position=UDim2.new(0,0,0,216), BackgroundColor3=Color3.fromRGB(22,25,35), BorderSizePixel=0, Parent=AF})
+UI.Create("TextLabel", {Size=UDim2.new(1,0,0,16), BackgroundColor3=Color3.fromRGB(18,20,30), Text=" 🦴 Joints", TextColor3=T.TX, TextSize=9, Font=Enum.Font.GothamBold, TextXAlignment=Enum.TextXAlignment.Left, Parent=JP})
+JSc = UI.Create("ScrollingFrame", {Size=UDim2.new(1,0,0,110), Position=UDim2.new(0,0,0,18), BackgroundTransparency=1, ScrollBarThickness=2, CanvasSize=UDim2.new(0,0,0,0), Parent=JP})
+pcall(function() JSc.ElasticBehavior=Enum.ElasticBehavior.Never end)
+UI.Create("UIListLayout", {Padding=UDim.new(0,1), Parent=JSc})
 
-UI.Create("TextLabel", {
-    Size = UDim2.new(1,0,0,18),
-    BackgroundColor3 = Color3.fromRGB(18,20,30),
-    Text = " 🦴 Joints",
-    TextColor3 = T.TX,
-    TextSize = 10,
-    Font = Enum.Font.GothamBold,
-    TextXAlignment = Enum.TextXAlignment.Left,
-    Parent = JP
-})
-
-local JSc = UI.Create("ScrollingFrame", {
-    Size = UDim2.new(1,0,0,92),
-    Position = UDim2.new(0,0,0,20),
-    BackgroundTransparency = 1,
-    ScrollBarThickness = 2,
-    CanvasSize = UDim2.new(0,0,0,0),
-    Parent = JP
-})
-UI.Create("UIListLayout", {
-    Padding = UDim.new(0,1),
-    Parent = JSc
-})
-
-local function UpdateJL()
-    for _, ch in ipairs(JSc:GetChildren()) do
-        if ch:IsA("TextButton") then ch:Destroy() end
-    end
-    JSc.CanvasSize = UDim2.new(0,0,0,
-        #Eng.AllJoints*18)
-    
-    for _, j in ipairs(Eng.AllJoints) do
-        local ic = "🔗"
-        if j.Type=="Motor6D" then ic="🦴"
-        elseif j.Type=="Part" then ic="🔷"
-        elseif j.Type=="GUI" then ic="🖼️"
-        elseif j.Type=="FX" then ic="✨" end
-        
-        local jb = UI.Create("TextButton", {
-            Size = UDim2.new(1,-3,0,16),
-            BackgroundColor3 = T.SF,
-            BackgroundTransparency = 0.4,
-            Text = " "..ic.." "..j.Name,
-            TextColor3 = T.TD,
-            TextSize = 8,
-            Font = Enum.Font.Code,
-            TextXAlignment =
-                Enum.TextXAlignment.Left,
-            Parent = JSc
-        })
-        UI.Corner(jb, 3)
-        jb.MouseButton1Click:Connect(function()
-            if j.Inst then
-                pcall(function()
-                    Selection:Set({j.Inst})
-                end)
-            end
-            jb.BackgroundColor3 = T.PR
-            jb.TextColor3 = Color3.new(1,1,1)
-        end)
+function UpdateJL()
+    for _,ch in ipairs(JSc:GetChildren()) do if ch:IsA("TextButton") then pcall(function() ch:Destroy() end) end end
+    JSc.CanvasSize=UDim2.new(0,0,0,#Eng.AllJoints*16)
+    for _,j in ipairs(Eng.AllJoints) do
+        local ic="🔗"
+        if j.Type=="Motor6D" then ic="🦴" elseif j.Type=="Part" then ic="🔷" elseif j.Type=="GUI" then ic="🖼️" elseif j.Type=="FX" then ic="✨" end
+        local jb = UI.Create("TextButton", {Size=UDim2.new(1,-3,0,14), BackgroundColor3=T.SF, BackgroundTransparency=0.4, Text=" "..ic.." "..j.Name, TextColor3=T.TD, TextSize=7, Font=Enum.Font.Code, TextXAlignment=Enum.TextXAlignment.Left, Parent=JSc})
+        if jb then UI.Corner(jb, 3)
+            jb.MouseButton1Click:Connect(function()
+                if j.Inst and Selection then pcall(function() Selection:Set({j.Inst}) end) end
+                pcall(function() jb.BackgroundColor3=T.PR jb.TextColor3=Color3.new(1,1,1) end)
+            end)
+        end
     end
 end
 
--- Info panel
-local IP = UI.Create("Frame", {
-    Size = UDim2.new(1,-180,0,115),
-    Position = UDim2.new(0,180,0,232),
-    BackgroundColor3 = Color3.fromRGB(22,25,35),
-    BorderSizePixel = 0,
-    ClipsDescendants = true,
-    Parent = AF
-})
-
-UI.Create("TextLabel", {
-    Size = UDim2.new(1,0,0,18),
-    BackgroundColor3 = Color3.fromRGB(18,20,30),
-    Text = " 📊 Info",
-    TextColor3 = T.TX,
-    TextSize = 10,
-    Font = Enum.Font.GothamBold,
-    TextXAlignment = Enum.TextXAlignment.Left,
-    Parent = IP
-})
-
-local infoLabels = {}
-local infoNames = {
-    "Type","Interp","KFs","Time",
-    "Speed","Target","View","Loop"
-}
-local ISc = UI.Create("ScrollingFrame", {
-    Size = UDim2.new(1,0,0,92),
-    Position = UDim2.new(0,0,0,20),
-    BackgroundTransparency = 1,
-    ScrollBarThickness = 2,
-    CanvasSize = UDim2.new(0,0,0,150),
-    Parent = IP
-})
-local iLay = UI.Create("UIListLayout", {
-    Padding = UDim.new(0,2),
-    Parent = ISc
-})
-
-for _, nm in ipairs(infoNames) do
-    local il = UI.Create("TextLabel", {
-        Size = UDim2.new(1,-4,0,14),
-        BackgroundColor3 = T.SF,
-        BackgroundTransparency = 0.5,
-        Text = " "..nm..": —",
-        TextColor3 = T.TD,
-        TextSize = 9,
-        Font = Enum.Font.Code,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        Parent = ISc
-    })
-    UI.Corner(il, 3)
-    table.insert(infoLabels, il)
+-- INFO PANEL
+IP = UI.Create("Frame", {Size=UDim2.new(1,-170,0,130), Position=UDim2.new(0,170,0,216), BackgroundColor3=Color3.fromRGB(22,25,35), BorderSizePixel=0, ClipsDescendants=true, Parent=AF})
+UI.Create("TextLabel", {Size=UDim2.new(1,0,0,16), BackgroundColor3=Color3.fromRGB(18,20,30), Text=" 📊 Info", TextColor3=T.TX, TextSize=9, Font=Enum.Font.GothamBold, TextXAlignment=Enum.TextXAlignment.Left, Parent=IP})
+infoLabels = {}
+ISc = UI.Create("ScrollingFrame", {Size=UDim2.new(1,0,0,110), Position=UDim2.new(0,0,0,18), BackgroundTransparency=1, ScrollBarThickness=2, CanvasSize=UDim2.new(0,0,0,140), Parent=IP})
+UI.Create("UIListLayout", {Padding=UDim.new(0,2), Parent=ISc})
+for _,nm in ipairs({"Type","Interp","KFs","Time","Speed","Target","View","Loop"}) do
+    local il = UI.Create("TextLabel", {Size=UDim2.new(1,-4,0,13), BackgroundColor3=T.SF, BackgroundTransparency=0.5, Text=" "..nm..": —", TextColor3=T.TD, TextSize=8, Font=Enum.Font.Code, TextXAlignment=Enum.TextXAlignment.Left, Parent=ISc})
+    if il then UI.Corner(il, 3) table.insert(infoLabels, il) end
 end
 
--- ============================================
--- MAIN UPDATE LOOP
--- ============================================
-local uc = 0
+-- UPDATE LOOP
+uc=0
 RunService.RenderStepped:Connect(function(dt)
-    uc = uc + 1
-    if uc % 2 == 0 then
-        UpdateTL()
-        spdDisp.Text = string.format(
-            "%.1fx", Eng.Speed)
-        if not Eng.IsPlaying then
-            playBtn.Text = "▶"
-            playBtn.BackgroundColor3 = T.OK
-        end
-        if #infoLabels >= 8 then
-            infoLabels[1].Text =
-                " Type: "..Eng.AnimType
-            infoLabels[2].Text =
-                " Interp: "..Eng.InterpMode
-            infoLabels[3].Text =
-                " KFs: "..#Eng.Keyframes
-            infoLabels[4].Text =
-                string.format(" Time: %.2fs",
-                    Eng.CurrentTime)
-            infoLabels[5].Text =
-                string.format(" Speed: %.1fx",
-                    Eng.Speed)
-            infoLabels[6].Text =
-                " Tgt: "..(Eng.Target and
-                    Eng.Target.Name:sub(1,10)
-                    or "None")
-            infoLabels[7].Text =
-                " View: "..Eng.ViewMode
-            infoLabels[8].Text =
-                " Loop: "..(Eng.IsLooping
-                    and "ON" or "OFF")
-        end
-        fpsL.Text = math.floor(1/dt).."FPS"
+    uc=uc+1
+    if uc%2==0 then
+        pcall(function() UpdateTL() end)
+        pcall(function() spdDisp.Text=string.format("%.1fx",Eng.Speed) end)
+        pcall(function() if not Eng.IsPlaying then playBtn.Text="▶" playBtn.BackgroundColor3=T.OK end end)
+        pcall(function()
+            if #infoLabels>=8 then
+                local tn="None" if Eng.Target then pcall(function() tn=Eng.Target.Name end) if #tn>10 then tn=tn:sub(1,10) end end
+                infoLabels[1].Text=" Type: "..Eng.AnimType
+                infoLabels[2].Text=" Interp: "..Eng.InterpMode
+                infoLabels[3].Text=" KFs: "..#Eng.Keyframes
+                infoLabels[4].Text=string.format(" Time: %.2fs",Eng.CurrentTime)
+                infoLabels[5].Text=string.format(" Speed: %.1fx",Eng.Speed)
+                infoLabels[6].Text=" Tgt: "..tn
+                infoLabels[7].Text=" View: "..Eng.ViewMode
+                infoLabels[8].Text=" Loop: "..(Eng.IsLooping and "ON" or "OFF")
+            end
+        end)
+        pcall(function() fpsL.Text=math.floor(1/dt).."FPS" end)
     end
 end)
 
--- Auto-Key detection
-local lastStates = {}
+-- AUTO KEY
+lastStates={}
 spawn(function()
     while SG and SG.Parent do
         if Eng.AutoKey and #Eng.AllJoints>0 then
-            local changed = false
-            for _, j in ipairs(Eng.AllJoints) do
-                pcall(function()
-                    local k = j.Name
-                    if j.Type=="Motor6D" then
-                        local c = j.Inst.C0
-                        if lastStates[k] and
-                           lastStates[k]~=c then
-                            changed = true
-                        end
-                        lastStates[k] = c
-                    elseif j.Type=="Part" then
-                        local c = j.Inst.CFrame
-                        if lastStates[k] and
-                           lastStates[k]~=c then
-                            changed = true
-                        end
-                        lastStates[k] = c
-                    end
-                end)
-            end
-            if changed then
-                Eng:AddKeyframe()
-            end
+            local changed=false
+            for _,j in ipairs(Eng.AllJoints) do pcall(function()
+                local k=j.Name
+                if j.Type=="Motor6D" and j.Inst and j.Inst.Parent then
+                    local c=j.Inst.C0 if lastStates[k] and lastStates[k]~=c then changed=true end lastStates[k]=c
+                elseif j.Type=="Part" and j.Inst and j.Inst.Parent then
+                    local c=j.Inst.CFrame if lastStates[k] and lastStates[k]~=c then changed=true end lastStates[k]=c
+                end
+            end) end
+            if changed then Eng:AddKeyframe() end
         end
         wait(0.15)
     end
 end)
 
--- Update joint list
-spawn(function()
-    local lt = nil
-    while SG and SG.Parent do
-        if Eng.Target ~= lt then
-            lt = Eng.Target
-            UpdateJL()
-        end
-        wait(0.4)
-    end
-end)
+spawn(function() local lt=nil while SG and SG.Parent do if Eng.Target~=lt then lt=Eng.Target pcall(function() UpdateJL() end) end wait(0.4) end end)
 
-print("❄️ Part 6/7 Loaded - Timeline & Playback")
-
---[[
-    ╔══════════════════════════════════════════════╗
-    ║       Snow Hub Studios❄️ - PARTE 7/7        ║
-    ║  Save/Export/CurveEd/Edit/Settings/Mobile    ║
-    ╚══════════════════════════════════════════════╝
-]]
-
--- ============================================
--- SAVE MENU
--- ============================================
-local SM = UI.Create("Frame", {
-    Name = "SaveM",
-    Size = UDim2.new(0,380,0,480),
-    Position = UDim2.new(0.5,-190,0.5,-240),
-    BackgroundColor3 = T.BG,
-    Visible = false, ZIndex = 50,
-    Parent = SG
-})
-UI.Corner(SM, 12)
-UI.Stroke(SM, T.PR, 2)
-
-UI.Create("TextLabel", {
-    Size=UDim2.new(1,0,0,35),
-    BackgroundTransparency=1,
-    Text="💾 Save Animations",
-    TextColor3=T.SN, TextSize=16,
-    Font=Enum.Font.GothamBold, ZIndex=51,
-    Parent=SM
-})
-local csm = UI.Create("TextButton", {
-    Size=UDim2.new(0,24,0,24),
-    Position=UDim2.new(1,-30,0,6),
-    BackgroundColor3=T.DN, Text="✕",
-    TextColor3=Color3.new(1,1,1),
-    TextSize=11, Font=Enum.Font.GothamBold,
-    ZIndex=52, Parent=SM
-})
-UI.Corner(csm, 5)
-csm.MouseButton1Click:Connect(function()
-    SM.Visible=false end)
-
-local SSc = UI.Create("ScrollingFrame", {
-    Size=UDim2.new(0.92,0,0,425),
-    Position=UDim2.new(0.04,0,0,40),
-    BackgroundTransparency=1,
-    ScrollBarThickness=3,
-    CanvasSize=UDim2.new(0,0,0,800),
-    ZIndex=51, Parent=SM
-})
-UI.Create("UIListLayout", {
-    Padding=UDim.new(0,5), Parent=SSc
-})
-
-for i = 1, 10 do
-    local sf = UI.Create("Frame", {
-        Size=UDim2.new(1,-6,0,72),
-        BackgroundColor3=T.SF, ZIndex=52,
-        Parent=SSc
-    })
-    UI.Corner(sf, 7)
-    
-    UI.Create("TextLabel", {
-        Size=UDim2.new(0,24,0,16),
-        Position=UDim2.new(0,6,0,4),
-        BackgroundTransparency=1,
-        Text="#"..i, TextColor3=T.AC,
-        TextSize=11, Font=Enum.Font.GothamBold,
-        ZIndex=53, Parent=sf
-    })
-    
-    local nb = UI.Create("TextBox", {
-        Size=UDim2.new(0.55,0,0,20),
-        Position=UDim2.new(0,32,0,3),
-        BackgroundColor3=Color3.fromRGB(15,17,25),
-        Text=saveSystem.Slots[i].Name or "",
-        PlaceholderText="Name...",
-        TextColor3=T.TX, TextSize=10,
-        Font=Enum.Font.Gotham,
-        ClearTextOnFocus=false,
-        ZIndex=53, Parent=sf
-    })
-    UI.Corner(nb, 4)
-    
-    local stL = UI.Create("TextLabel", {
-        Size=UDim2.new(0.4,0,0,12),
-        Position=UDim2.new(0,32,0,26),
-        BackgroundTransparency=1,
-        Text=saveSystem.Slots[i].Exists
-            and "✅Saved" or "⬜Empty",
-        TextColor3=saveSystem.Slots[i].Exists
-            and T.OK or T.TD,
-        TextSize=9, Font=Enum.Font.Gotham,
-        TextXAlignment=Enum.TextXAlignment.Left,
-        ZIndex=53, Parent=sf
-    })
-    
-    local svB = UI.Create("TextButton", {
-        Size=UDim2.new(0,78,0,22),
-        Position=UDim2.new(0,6,0,44),
-        BackgroundColor3=T.OK,
-        Text="Save Anim",
-        TextColor3=Color3.new(1,1,1),
-        TextSize=10, Font=Enum.Font.GothamBold,
-        ZIndex=53, Parent=sf
-    })
-    UI.Corner(svB, 5)
-    
-    local dlB = UI.Create("TextButton", {
-        Size=UDim2.new(0,78,0,22),
-        Position=UDim2.new(0,90,0,44),
-        BackgroundColor3=T.DN,
-        Text="Delete Anim",
-        TextColor3=Color3.new(1,1,1),
-        TextSize=10, Font=Enum.Font.GothamBold,
-        ZIndex=53, Parent=sf
-    })
-    UI.Corner(dlB, 5)
-    
-    local ldB = UI.Create("TextButton", {
-        Size=UDim2.new(0,68,0,22),
-        Position=UDim2.new(0,174,0,44),
-        BackgroundColor3=T.PR,
-        Text="Load",
-        TextColor3=Color3.new(1,1,1),
-        TextSize=10, Font=Enum.Font.GothamBold,
-        ZIndex=53, Parent=sf
-    })
-    UI.Corner(ldB, 5)
-    
-    local si = i
-    svB.MouseButton1Click:Connect(function()
-        local n = nb.Text~="" and nb.Text
-            or ("Anim_"..si)
-        saveSystem:SaveSlot(si, n, Eng:Serialize())
-        stL.Text="✅Saved"
-        stL.TextColor3=T.OK
-        nb.Text=n
-    end)
-    dlB.MouseButton1Click:Connect(function()
-        saveSystem:DeleteSlot(si)
-        stL.Text="⬜Empty"
-        stL.TextColor3=T.TD
-        nb.Text=""
-    end)
-    ldB.MouseButton1Click:Connect(function()
-        local sl = saveSystem:GetSlot(si)
-        if sl.Exists and sl.Data then
-            Eng:Deserialize(sl.Data)
-        end
-    end)
-end
-
--- ============================================
--- EXPORT MENU
--- ============================================
-local EM = UI.Create("Frame", {
-    Name="ExpM",
-    Size=UDim2.new(0,400,0,350),
-    Position=UDim2.new(0.5,-200,0.5,-175),
-    BackgroundColor3=T.BG,
-    Visible=false, ZIndex=50, Parent=SG
-})
-UI.Corner(EM, 12)
-UI.Stroke(EM, T.AC, 2)
-
-UI.Create("TextLabel", {
-    Size=UDim2.new(1,0,0,35),
-    BackgroundTransparency=1,
-    Text="📤 Export Animation",
-    TextColor3=T.SN, TextSize=16,
-    Font=Enum.Font.GothamBold, ZIndex=51,
-    Parent=EM
-})
-local cem = UI.Create("TextButton", {
-    Size=UDim2.new(0,24,0,24),
-    Position=UDim2.new(1,-30,0,6),
-    BackgroundColor3=T.DN, Text="✕",
-    TextColor3=Color3.new(1,1,1),
-    TextSize=11, Font=Enum.Font.GothamBold,
-    ZIndex=52, Parent=EM
-})
-UI.Corner(cem, 5)
-cem.MouseButton1Click:Connect(function()
-    EM.Visible=false end)
-
-local esBtn = UI.Create("TextButton", {
-    Size=UDim2.new(0.9,0,0,42),
-    Position=UDim2.new(0.05,0,0,42),
-    BackgroundColor3=T.PR,
-    Text="📜 Export via Script",
-    TextColor3=Color3.new(1,1,1),
-    TextSize=14, Font=Enum.Font.GothamBold,
-    ZIndex=52, Parent=EM
-})
-UI.Corner(esBtn, 8)
-
-local sOut = UI.Create("TextBox", {
-    Size=UDim2.new(0.9,0,0,140),
-    Position=UDim2.new(0.05,0,0,155),
-    BackgroundColor3=Color3.fromRGB(10,12,18),
-    Text="", PlaceholderText="Script here...",
-    TextColor3=Color3.fromRGB(150,255,150),
-    TextSize=8, Font=Enum.Font.Code,
-    TextXAlignment=Enum.TextXAlignment.Left,
-    TextYAlignment=Enum.TextYAlignment.Top,
-    MultiLine=true, ClearTextOnFocus=false,
-    TextWrapped=true, Visible=false,
-    ZIndex=52, Parent=EM
-})
-UI.Corner(sOut, 6)
-
-esBtn.MouseButton1Click:Connect(function()
-    sOut.Text = Eng:GenExportScript()
-    sOut.Visible = true
-end)
-
-local eiBtn = UI.Create("TextButton", {
-    Size=UDim2.new(0.9,0,0,42),
-    Position=UDim2.new(0.05,0,0,92),
-    BackgroundColor3=T.PU,
-    Text="🆔 Export via ID (ReplicatedStorage)",
-    TextColor3=Color3.new(1,1,1),
-    TextSize=12, Font=Enum.Font.GothamBold,
-    ZIndex=52, Parent=EM
-})
-UI.Corner(eiBtn, 8)
-
-local etF = UI.Create("Frame", {
-    Size=UDim2.new(0.9,0,0,38),
-    Position=UDim2.new(0.05,0,0,140),
-    BackgroundTransparency=1,
-    Visible=false, ZIndex=52, Parent=EM
-})
-UI.Create("UIListLayout", {
-    FillDirection=Enum.FillDirection.Horizontal,
-    Padding=UDim.new(0,6), Parent=etF
-})
-
-for _, et in ipairs({"NPC","Player","Tool","Gui"}) do
-    local eb = UI.Create("TextButton", {
-        Size=UDim2.new(0,75,0,30),
-        BackgroundColor3=T.SF, Text=et,
-        TextColor3=T.TX, TextSize=12,
-        Font=Enum.Font.GothamBold, ZIndex=53,
-        Parent=etF
-    })
-    UI.Corner(eb, 6)
-    eb.MouseButton1Click:Connect(function()
-        local fn = Eng:ExportToRS(et)
-        sOut.Text = "✅ Exported '"..fn
-            .."' | Type: "..et
-        sOut.Visible = true
-        eb.BackgroundColor3 = T.OK
-        wait(0.8)
-        eb.BackgroundColor3 = T.SF
-    end)
-end
-
-eiBtn.MouseButton1Click:Connect(function()
-    etF.Visible = not etF.Visible
-    sOut.Visible = false
-end)
-
--- ============================================
--- CURVE EDITOR
--- ============================================
-local CE = UI.Create("Frame", {
-    Name="CurveEd",
-    Size=UDim2.new(0,500,0,340),
-    Position=UDim2.new(0.5,-250,0.1,0),
-    BackgroundColor3=T.BG,
-    Visible=false, ZIndex=60, Parent=SG
-})
-UI.Corner(CE, 12)
-UI.Stroke(CE, T.CY, 2)
-
-UI.Create("TextLabel", {
-    Size=UDim2.new(1,0,0,30),
-    BackgroundColor3=Color3.fromRGB(18,20,30),
-    Text="🖋️ Curve Editor",
-    TextColor3=T.SN, TextSize=13,
-    Font=Enum.Font.GothamBold,
-    ZIndex=61, Parent=CE
-})
-UI.Corner(CE:FindFirstChildOfClass("TextLabel"),12)
-
-local cce = UI.Create("TextButton", {
-    Size=UDim2.new(0,22,0,22),
-    Position=UDim2.new(1,-28,0,4),
-    BackgroundColor3=T.DN, Text="✕",
-    TextColor3=Color3.new(1,1,1),
-    TextSize=10, Font=Enum.Font.GothamBold,
-    ZIndex=62, Parent=CE
-})
-UI.Corner(cce, 5)
-cce.MouseButton1Click:Connect(function()
-    CE.Visible=false end)
-
-local CC = UI.Create("Frame", {
-    Size=UDim2.new(0.94,0,0,250),
-    Position=UDim2.new(0.03,0,0,38),
-    BackgroundColor3=Color3.fromRGB(12,14,22),
-    ZIndex=61, Parent=CE
-})
-UI.Corner(CC, 6)
-
--- Grid
-for i = 0, 10 do
-    UI.Create("Frame", {
-        Size=UDim2.new(0,1,1,0),
-        Position=UDim2.new(i/10,0,0,0),
-        BackgroundColor3=Color3.fromRGB(32,35,48),
-        BackgroundTransparency=0.5,
-        BorderSizePixel=0, ZIndex=62, Parent=CC
-    })
-    UI.Create("Frame", {
-        Size=UDim2.new(1,0,0,1),
-        Position=UDim2.new(0,0,i/10,0),
-        BackgroundColor3=Color3.fromRGB(32,35,48),
-        BackgroundTransparency=0.5,
-        BorderSizePixel=0, ZIndex=62, Parent=CC
-    })
-end
-
-local cPts = {}
-local function DrawCurve()
-    for _, p in ipairs(cPts) do
-        if p and p.Parent then p:Destroy() end
-    end
-    cPts = {}
-    for i = 0, 80 do
-        local t = i/80
-        local et = Eng:ApplyEasing(t,
-            Eng.InterpMode, Eng.EasingDir)
-        local dot = UI.Create("Frame", {
-            Size=UDim2.new(0,3,0,3),
-            Position=UDim2.new(t,-1,1-et,-1),
-            BackgroundColor3=T.AC,
-            BorderSizePixel=0,
-            ZIndex=63, Parent=CC
-        })
-        UI.Corner(dot, 2)
-        table.insert(cPts, dot)
-    end
-end
-
--- CE controls
-local ceC = UI.Create("Frame", {
-    Size=UDim2.new(0.94,0,0,30),
-    Position=UDim2.new(0.03,0,1,-35),
-    BackgroundTransparency=1,
-    ZIndex=61, Parent=CE
-})
-UI.Create("UIListLayout", {
-    FillDirection=Enum.FillDirection.Horizontal,
-    Padding=UDim.new(0,4),
-    VerticalAlignment=
-        Enum.VerticalAlignment.Center,
-    Parent=ceC
-})
-
-for _, m in ipairs({
-    "Linear","Cubic","Bounce","Elastic",
-    "Back","Sine","Quad"
-}) do
-    local mb = UI.Create("TextButton", {
-        Size=UDim2.new(0,55,0,24),
-        BackgroundColor3=T.SF, Text=m,
-        TextColor3=T.TX, TextSize=9,
-        Font=Enum.Font.GothamBold,
-        ZIndex=62, Parent=ceC
-    })
-    UI.Corner(mb, 5)
-    mb.MouseButton1Click:Connect(function()
-        Eng.InterpMode = m
-        ipBtn.Text = m
-        DrawCurve()
-        for _, ch in ipairs(ceC:GetChildren()) do
-            if ch:IsA("TextButton") then
-                ch.BackgroundColor3 = T.SF
-            end
-        end
-        mb.BackgroundColor3 = T.PR
-    end)
-end
-
--- Auto-draw curve when opened
-spawn(function()
-    while SG and SG.Parent do
-        if CE.Visible then DrawCurve() end
-        wait(0.5)
-    end
-end)
-
--- ============================================
--- EDIT MENU
--- ============================================
-local EDM = UI.Create("Frame", {
-    Name="EditM",
-    Size=UDim2.new(0,260,0,280),
-    Position=UDim2.new(0,270,0.5,-140),
-    BackgroundColor3=T.BG,
-    Visible=false, ZIndex=55, Parent=SG
-})
-UI.Corner(EDM, 10)
-UI.Stroke(EDM, T.PR, 1)
-
-UI.Create("TextLabel", {
-    Size=UDim2.new(1,0,0,30),
-    BackgroundColor3=Color3.fromRGB(18,20,30),
-    Text="📝 Edit", TextColor3=T.SN,
-    TextSize=13, Font=Enum.Font.GothamBold,
-    ZIndex=56, Parent=EDM
-})
-
-local cedm = UI.Create("TextButton", {
-    Size=UDim2.new(0,20,0,20),
-    Position=UDim2.new(1,-25,0,5),
-    BackgroundColor3=T.DN, Text="✕",
-    TextColor3=Color3.new(1,1,1),
-    TextSize=10, Font=Enum.Font.GothamBold,
-    ZIndex=57, Parent=EDM
-})
-UI.Corner(cedm, 4)
-cedm.MouseButton1Click:Connect(function()
-    EDM.Visible=false end)
-
-local edSc = UI.Create("ScrollingFrame", {
-    Size=UDim2.new(0.9,0,0,230),
-    Position=UDim2.new(0.05,0,0,35),
-    BackgroundTransparency=1,
-    ScrollBarThickness=2,
-    CanvasSize=UDim2.new(0,0,0,300),
-    ZIndex=56, Parent=EDM
-})
-UI.Create("UIListLayout", {
-    Padding=UDim.new(0,4), Parent=edSc
-})
-
-local function EditRow(lbl, val, ord, cb)
-    local r = UI.Create("Frame", {
-        Size=UDim2.new(1,0,0,26),
-        BackgroundColor3=T.SF,
-        LayoutOrder=ord, ZIndex=57, Parent=edSc
-    })
-    UI.Corner(r, 5)
-    UI.Create("TextLabel", {
-        Size=UDim2.new(0.45,0,1,0),
-        BackgroundTransparency=1,
-        Text="  "..lbl, TextColor3=T.TX,
-        TextSize=10, Font=Enum.Font.Gotham,
-        TextXAlignment=Enum.TextXAlignment.Left,
-        ZIndex=58, Parent=r
-    })
-    local vb = UI.Create("TextBox", {
-        Size=UDim2.new(0.45,0,0,18),
-        Position=UDim2.new(0.5,0,0,4),
-        BackgroundColor3=Color3.fromRGB(15,17,25),
-        Text=val, TextColor3=T.AC,
-        TextSize=10, Font=Enum.Font.Code,
-        ClearTextOnFocus=false,
-        ZIndex=58, Parent=r
-    })
-    UI.Corner(vb, 4)
-    vb.FocusLost:Connect(function()
-        if cb then cb(vb.Text) end
-    end)
-    return vb
-end
-
-EditRow("Speed",tostring(Eng.Speed),1,function(v)
-    local n=tonumber(v)
-    if n then Eng.Speed=math.clamp(n,0.01,20) end
-end)
-EditRow("FPS",tostring(Eng.FPS),2,function(v)
-    local n=tonumber(v)
-    if n then Eng.FPS=math.clamp(n,1,120) end
-end)
-EditRow("GridSize",tostring(Eng.GridSize),3,
-    function(v)
-    local n=tonumber(v)
-    if n then Eng.GridSize=math.clamp(n,0.01,10)end
-end)
-EditRow("MirrorAxis",Eng.MirrorAxis,4,function(v)
-    if v=="X" or v=="Y" or v=="Z" then
-        Eng.MirrorAxis=v end
-end)
-
-editBtn.MouseButton1Click:Connect(function()
-    EDM.Visible = not EDM.Visible
-end)
-
--- ============================================
--- SETTINGS MENU
--- ============================================
-local STM = UI.Create("Frame", {
-    Name="SetM",
-    Size=UDim2.new(0,260,0,200),
-    Position=UDim2.new(0,350,0.5,-100),
-    BackgroundColor3=T.BG,
-    Visible=false, ZIndex=55, Parent=SG
-})
-UI.Corner(STM, 10)
-UI.Stroke(STM, T.WN, 1)
-
-UI.Create("TextLabel", {
-    Size=UDim2.new(1,0,0,30),
-    BackgroundColor3=Color3.fromRGB(18,20,30),
-    Text="⚙️ Settings", TextColor3=T.SN,
-    TextSize=13, Font=Enum.Font.GothamBold,
-    ZIndex=56, Parent=STM
-})
-
-local cstm = UI.Create("TextButton", {
-    Size=UDim2.new(0,20,0,20),
-    Position=UDim2.new(1,-25,0,5),
-    BackgroundColor3=T.DN, Text="✕",
-    TextColor3=Color3.new(1,1,1),
-    TextSize=10, Font=Enum.Font.GothamBold,
-    ZIndex=57, Parent=STM
-})
-UI.Corner(cstm, 4)
-cstm.MouseButton1Click:Connect(function()
-    STM.Visible=false end)
-
-local vmSBtn = UI.Create("TextButton", {
-    Size=UDim2.new(0.8,0,0,32),
-    Position=UDim2.new(0.1,0,0,40),
-    BackgroundColor3=T.OK,
-    Text="Global🌎",
-    TextColor3=Color3.new(1,1,1),
-    TextSize=13, Font=Enum.Font.GothamBold,
-    ZIndex=57, Parent=STM
-})
-UI.Corner(vmSBtn, 7)
-vmSBtn.MouseButton1Click:Connect(function()
-    if Eng.ViewMode=="Global" then
-        Eng.ViewMode="Local"
-        vmSBtn.Text="Local📍"
-        vmSBtn.BackgroundColor3=T.WN
-        vmBtn.Text="Local📍"
-        vmBtn.BackgroundColor3=T.WN
-    else
-        Eng.ViewMode="Global"
-        vmSBtn.Text="Global🌎"
-        vmSBtn.BackgroundColor3=T.OK
-        vmBtn.Text="Global🌎"
-        vmBtn.BackgroundColor3=T.OK
-    end
-end)
-
-UI.Create("TextLabel", {
-    Size=UDim2.new(0.8,0,0,50),
-    Position=UDim2.new(0.1,0,0,85),
-    BackgroundTransparency=1,
-    Text="60FPS • Global/Local toggle\nUse gizmos do Studio Lite\npara manipular joints",
-    TextColor3=T.TD, TextSize=10,
-    Font=Enum.Font.Gotham,
-    TextWrapped=true, ZIndex=56, Parent=STM
-})
-
-settBtn.MouseButton1Click:Connect(function()
-    STM.Visible = not STM.Visible
-end)
-
--- ============================================
--- KEYBOARD SHORTCUTS
--- ============================================
-UserInputService.InputBegan:Connect(
-    function(inp, gp)
-    if gp then return end
-    local kc = inp.KeyCode
-    if kc==Enum.KeyCode.Space then
-        if Eng.IsPlaying then Eng:Pause()
-        else Eng:Play() end
-    elseif kc==Enum.KeyCode.K then
-        Eng:AddKeyframe()
-    elseif kc==Enum.KeyCode.Z and
-        UserInputService:IsKeyDown(
-            Enum.KeyCode.LeftControl) then
-        if UserInputService:IsKeyDown(
-            Enum.KeyCode.LeftShift) then
-            Eng:Redo()
-        else Eng:Undo() end
-    elseif kc==Enum.KeyCode.C and
-        UserInputService:IsKeyDown(
-            Enum.KeyCode.LeftControl) then
-        Eng:CopyKF()
-    elseif kc==Enum.KeyCode.V and
-        UserInputService:IsKeyDown(
-            Enum.KeyCode.LeftControl) then
-        Eng:PasteKF()
-    elseif kc==Enum.KeyCode.Delete then
-        Eng:RemoveKFAt(Eng.CurrentTime)
-    elseif kc==Enum.KeyCode.Left then
-        Eng.CurrentTime = math.max(0,
-            Eng.CurrentTime-1/Eng.FPS)
-        Eng:GoTo(Eng.CurrentTime)
-    elseif kc==Enum.KeyCode.Right then
-        Eng.CurrentTime =
-            Eng.CurrentTime+1/Eng.FPS
-        Eng:GoTo(Eng.CurrentTime)
-    elseif kc==Enum.KeyCode.Home then
-        Eng:GoTo(0)
-    elseif kc==Enum.KeyCode.End then
-        Eng:GoTo(Eng:GetMaxTime())
-    end
-end)
-
--- ============================================
 -- DRAG ANIMATOR
--- ============================================
-local ad,adi,ads,asp
+ad=false adi=nil ads=nil asp=nil
 AH.InputBegan:Connect(function(inp)
-    if inp.UserInputType==
-       Enum.UserInputType.MouseButton1 or
-       inp.UserInputType==
-       Enum.UserInputType.Touch then
-        ad=true; ads=inp.Position; asp=AF.Position
-        inp.Changed:Connect(function()
-            if inp.UserInputState==
-               Enum.UserInputState.End then
-                ad=false
-            end
-        end)
+    if inp.UserInputType==Enum.UserInputType.MouseButton1 or inp.UserInputType==Enum.UserInputType.Touch then
+        ad=true ads=inp.Position asp=AF.Position
+        inp.Changed:Connect(function() if inp.UserInputState==Enum.UserInputState.End then ad=false end end)
     end
 end)
 UserInputService.InputChanged:Connect(function(inp)
-    if ad and (inp.UserInputType==
-       Enum.UserInputType.MouseMovement or
-       inp.UserInputType==
-       Enum.UserInputType.Touch) then
-        local d=inp.Position-ads
-        AF.Position=UDim2.new(asp.X.Scale,
-            asp.X.Offset+d.X,
-            asp.Y.Scale,asp.Y.Offset+d.Y)
+    if ad and (inp.UserInputType==Enum.UserInputType.MouseMovement or inp.UserInputType==Enum.UserInputType.Touch) then
+        pcall(function() local d=inp.Position-ads AF.Position=UDim2.new(asp.X.Scale,asp.X.Offset+d.X,asp.Y.Scale,asp.Y.Offset+d.Y) end)
     end
 end)
+print("P6 OK")
 
--- ============================================
--- MOBILE ADAPTATION
--- ============================================
-local isMob = UserInputService.TouchEnabled and
-    not UserInputService.KeyboardEnabled
+--[[
+    Snow Hub Studios - PARTE 7/7
+    Menus, Shortcuts & Mobile
+]]
 
-if isMob then
-    local cam = workspace.CurrentCamera
-    local ss = cam.ViewportSize
-    
-    Hub.Position = UDim2.new(0.5,
-        -math.min(250,ss.X*0.45),0.05,0)
-    Hub.Size = UDim2.new(0,
-        math.min(500,ss.X*0.92),0,
-        math.min(620,ss.Y*0.88))
-    
-    AF.Size = UDim2.new(1,0,0,
-        math.min(360,ss.Y*0.5))
-    AF.Position = UDim2.new(0,0,1,
-        -AF.Size.Y.Offset)
-    
-    -- Botões maiores
-    for _, d in ipairs(TBS:GetChildren()) do
-        if d:IsA("TextButton") then
-            d.Size = UDim2.new(0,
-                math.max(d.Size.X.Offset,50),
-                0, math.max(d.Size.Y.Offset,34))
-        end
-    end
-    
-    -- Menus responsivos
-    for _, mn in ipairs({SM,EM,CE,EDM,STM}) do
-        local mw = math.min(
-            mn.Size.X.Offset, ss.X*0.95)
-        local mh = math.min(
-            mn.Size.Y.Offset, ss.Y*0.85)
-        mn.Size = UDim2.new(0,mw,0,mh)
-        mn.Position = UDim2.new(0.5,-mw/2,
-            0.5,-mh/2)
-    end
-    
-    -- Touch timeline
-    TLS.InputChanged:Connect(function(inp)
-        if inp.UserInputType==
-           Enum.UserInputType.Touch then
-            local rx = inp.Position.X-
-                TLS.AbsolutePosition.X+
-                TLS.CanvasPosition.X
-            Eng.CurrentTime = math.max(0,rx/pps)
-            Eng:GoTo(Eng.CurrentTime)
-        end
+-- SAVE MENU
+SM = UI.Create("Frame", {Name="SaveM", Size=UDim2.new(0,360,0,460), Position=UDim2.new(0.5,-180,0.5,-230), BackgroundColor3=T.BG, Visible=false, ZIndex=50, Parent=SG})
+UI.Corner(SM, 12) UI.Stroke(SM, T.PR, 2)
+UI.Create("TextLabel", {Size=UDim2.new(1,0,0,32), BackgroundTransparency=1, Text="💾 Save Animations", TextColor3=T.SN, TextSize=15, Font=Enum.Font.GothamBold, ZIndex=51, Parent=SM})
+csm = UI.Create("TextButton", {Size=UDim2.new(0,22,0,22), Position=UDim2.new(1,-28,0,5), BackgroundColor3=T.DN, Text="✕", TextColor3=Color3.new(1,1,1), TextSize=10, Font=Enum.Font.GothamBold, ZIndex=52, Parent=SM})
+UI.Corner(csm, 5) csm.MouseButton1Click:Connect(function() SM.Visible=false end)
+SSc = UI.Create("ScrollingFrame", {Size=UDim2.new(0.92,0,0,410), Position=UDim2.new(0.04,0,0,36), BackgroundTransparency=1, ScrollBarThickness=3, CanvasSize=UDim2.new(0,0,0,780), ZIndex=51, Parent=SM})
+pcall(function() SSc.ElasticBehavior=Enum.ElasticBehavior.Never end)
+UI.Create("UIListLayout", {Padding=UDim.new(0,4), Parent=SSc})
+
+for i=1,10 do
+    local sf = UI.Create("Frame", {Size=UDim2.new(1,-4,0,70), BackgroundColor3=T.SF, ZIndex=52, Parent=SSc})
+    UI.Corner(sf, 6)
+    UI.Create("TextLabel", {Size=UDim2.new(0,20,0,14), Position=UDim2.new(0,5,0,3), BackgroundTransparency=1, Text="#"..i, TextColor3=T.AC, TextSize=10, Font=Enum.Font.GothamBold, ZIndex=53, Parent=sf})
+    local nb = UI.Create("TextBox", {Size=UDim2.new(0.55,0,0,18), Position=UDim2.new(0,28,0,2), BackgroundColor3=Color3.fromRGB(15,17,25), Text=saveSystem.Slots[i].Name or "", PlaceholderText="Name...", TextColor3=T.TX, TextSize=9, Font=Enum.Font.Gotham, ClearTextOnFocus=false, ZIndex=53, Parent=sf})
+    UI.Corner(nb, 4)
+    local stL = UI.Create("TextLabel", {Size=UDim2.new(0.4,0,0,12), Position=UDim2.new(0,28,0,22), BackgroundTransparency=1, Text=saveSystem.Slots[i].Exists and "✅Saved" or "⬜Empty", TextColor3=saveSystem.Slots[i].Exists and T.OK or T.TD, TextSize=8, Font=Enum.Font.Gotham, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=53, Parent=sf})
+    local svB = UI.Create("TextButton", {Size=UDim2.new(0,72,0,20), Position=UDim2.new(0,5,0,42), BackgroundColor3=T.OK, Text="Save Anim", TextColor3=Color3.new(1,1,1), TextSize=9, Font=Enum.Font.GothamBold, ZIndex=53, Parent=sf})
+    UI.Corner(svB, 5)
+    local dlB = UI.Create("TextButton", {Size=UDim2.new(0,72,0,20), Position=UDim2.new(0,82,0,42), BackgroundColor3=T.DN, Text="Delete Anim", TextColor3=Color3.new(1,1,1), TextSize=9, Font=Enum.Font.GothamBold, ZIndex=53, Parent=sf})
+    UI.Corner(dlB, 5)
+    local ldB = UI.Create("TextButton", {Size=UDim2.new(0,58,0,20), Position=UDim2.new(0,159,0,42), BackgroundColor3=T.PR, Text="Load", TextColor3=Color3.new(1,1,1), TextSize=9, Font=Enum.Font.GothamBold, ZIndex=53, Parent=sf})
+    UI.Corner(ldB, 5)
+    local si=i
+    svB.MouseButton1Click:Connect(function() local n=nb.Text~="" and nb.Text or ("Anim_"..si) saveSystem:SaveSlot(si,n,Eng:Serialize()) stL.Text="✅Saved" stL.TextColor3=T.OK nb.Text=n end)
+    dlB.MouseButton1Click:Connect(function() saveSystem:DeleteSlot(si) stL.Text="⬜Empty" stL.TextColor3=T.TD nb.Text="" end)
+    ldB.MouseButton1Click:Connect(function() local sl=saveSystem:GetSlot(si) if sl.Exists and sl.Data then Eng:Deserialize(sl.Data) end end)
+end
+
+-- EXPORT MENU
+EM = UI.Create("Frame", {Name="ExpM", Size=UDim2.new(0,380,0,330), Position=UDim2.new(0.5,-190,0.5,-165), BackgroundColor3=T.BG, Visible=false, ZIndex=50, Parent=SG})
+UI.Corner(EM, 12) UI.Stroke(EM, T.AC, 2)
+UI.Create("TextLabel", {Size=UDim2.new(1,0,0,32), BackgroundTransparency=1, Text="📤 Export Animation", TextColor3=T.SN, TextSize=15, Font=Enum.Font.GothamBold, ZIndex=51, Parent=EM})
+cem = UI.Create("TextButton", {Size=UDim2.new(0,22,0,22), Position=UDim2.new(1,-28,0,5), BackgroundColor3=T.DN, Text="✕", TextColor3=Color3.new(1,1,1), TextSize=10, Font=Enum.Font.GothamBold, ZIndex=52, Parent=EM})
+UI.Corner(cem, 5) cem.MouseButton1Click:Connect(function() EM.Visible=false end)
+
+esBtn = UI.Create("TextButton", {Size=UDim2.new(0.9,0,0,38), Position=UDim2.new(0.05,0,0,38), BackgroundColor3=T.PR, Text="📜 Export via Script", TextColor3=Color3.new(1,1,1), TextSize=13, Font=Enum.Font.GothamBold, ZIndex=52, Parent=EM})
+UI.Corner(esBtn, 7)
+sOut = UI.Create("TextBox", {Size=UDim2.new(0.9,0,0,130), Position=UDim2.new(0.05,0,0,145), BackgroundColor3=Color3.fromRGB(10,12,18), Text="", PlaceholderText="Script here...", TextColor3=Color3.fromRGB(150,255,150), TextSize=7, Font=Enum.Font.Code, TextXAlignment=Enum.TextXAlignment.Left, TextYAlignment=Enum.TextYAlignment.Top, MultiLine=true, ClearTextOnFocus=false, TextWrapped=true, Visible=false, ZIndex=52, Parent=EM})
+UI.Corner(sOut, 5)
+esBtn.MouseButton1Click:Connect(function() sOut.Text=Eng:GenExportScript() sOut.Visible=true end)
+
+eiBtn = UI.Create("TextButton", {Size=UDim2.new(0.9,0,0,38), Position=UDim2.new(0.05,0,0,82), BackgroundColor3=T.PU, Text="🆔 Export via ID (ReplicatedStorage)", TextColor3=Color3.new(1,1,1), TextSize=11, Font=Enum.Font.GothamBold, ZIndex=52, Parent=EM})
+UI.Corner(eiBtn, 7)
+etF = UI.Create("Frame", {Size=UDim2.new(0.9,0,0,34), Position=UDim2.new(0.05,0,0,126), BackgroundTransparency=1, Visible=false, ZIndex=52, Parent=EM})
+UI.Create("UIListLayout", {FillDirection=Enum.FillDirection.Horizontal, Padding=UDim.new(0,5), Parent=etF})
+for _,et in ipairs({"NPC","Player","Tool","Gui"}) do
+    local eb = UI.Create("TextButton", {Size=UDim2.new(0,70,0,28), BackgroundColor3=T.SF, Text=et, TextColor3=T.TX, TextSize=11, Font=Enum.Font.GothamBold, ZIndex=53, Parent=etF})
+    UI.Corner(eb, 5)
+    eb.MouseButton1Click:Connect(function()
+        local fn=Eng:ExportToRS(et) sOut.Text="✅ '"..fn.."' exported! Type: "..et sOut.Visible=true
+        eb.BackgroundColor3=T.OK spawn(function() wait(0.8) pcall(function() eb.BackgroundColor3=T.SF end) end)
     end)
-    
-    -- Floating button
-    local fb = UI.Create("TextButton", {
-        Size=UDim2.new(0,46,0,46),
-        Position=UDim2.new(0,6,0.4,0),
-        BackgroundColor3=T.PR,
-        Text="❄️", TextSize=22,
-        TextColor3=Color3.new(1,1,1),
-        ZIndex=100, Parent=SG
-    })
-    UI.Corner(fb, 23)
-    UI.Stroke(fb, T.SN, 2)
-    
-    local fbd,fbds,fbsp
+end
+eiBtn.MouseButton1Click:Connect(function() etF.Visible=not etF.Visible sOut.Visible=false end)
+
+-- CURVE EDITOR
+CE = UI.Create("Frame", {Name="CurveEd", Size=UDim2.new(0,460,0,300), Position=UDim2.new(0.5,-230,0.1,0), BackgroundColor3=T.BG, Visible=false, ZIndex=60, Parent=SG})
+UI.Corner(CE, 12) UI.Stroke(CE, T.CY, 2)
+UI.Create("TextLabel", {Size=UDim2.new(1,0,0,28), BackgroundColor3=Color3.fromRGB(18,20,30), Text="🖋️ Curve Editor", TextColor3=T.SN, TextSize=12, Font=Enum.Font.GothamBold, ZIndex=61, Parent=CE})
+cce = UI.Create("TextButton", {Size=UDim2.new(0,20,0,20), Position=UDim2.new(1,-24,0,4), BackgroundColor3=T.DN, Text="✕", TextColor3=Color3.new(1,1,1), TextSize=9, Font=Enum.Font.GothamBold, ZIndex=62, Parent=CE})
+UI.Corner(cce, 4) cce.MouseButton1Click:Connect(function() CE.Visible=false end)
+CC = UI.Create("Frame", {Size=UDim2.new(0.94,0,0,220), Position=UDim2.new(0.03,0,0,34), BackgroundColor3=Color3.fromRGB(12,14,22), ZIndex=61, Parent=CE})
+UI.Corner(CC, 5)
+for i=0,10 do
+    UI.Create("Frame", {Size=UDim2.new(0,1,1,0), Position=UDim2.new(i/10,0,0,0), BackgroundColor3=Color3.fromRGB(30,33,45), BackgroundTransparency=0.5, BorderSizePixel=0, ZIndex=62, Parent=CC})
+    UI.Create("Frame", {Size=UDim2.new(1,0,0,1), Position=UDim2.new(0,0,i/10,0), BackgroundColor3=Color3.fromRGB(30,33,45), BackgroundTransparency=0.5, BorderSizePixel=0, ZIndex=62, Parent=CC})
+end
+cPts={}
+function DrawCurve()
+    for _,p in ipairs(cPts) do pcall(function() if p and p.Parent then p:Destroy() end end) end
+    cPts={}
+    for i=0,60 do
+        local t=i/60 local et=Eng:ApplyEasing(t,Eng.InterpMode,Eng.EasingDir)
+        local dot = UI.Create("Frame", {Size=UDim2.new(0,3,0,3), Position=UDim2.new(t,-1,1-et,-1), BackgroundColor3=T.AC, BorderSizePixel=0, ZIndex=63, Parent=CC})
+        if dot then UI.Corner(dot, 2) table.insert(cPts, dot) end
+    end
+end
+ceC = UI.Create("Frame", {Size=UDim2.new(0.94,0,0,26), Position=UDim2.new(0.03,0,1,-30), BackgroundTransparency=1, ZIndex=61, Parent=CE})
+UI.Create("UIListLayout", {FillDirection=Enum.FillDirection.Horizontal, Padding=UDim.new(0,3), VerticalAlignment=Enum.VerticalAlignment.Center, Parent=ceC})
+for _,m in ipairs({"Linear","Cubic","Bounce","Elastic","Back","Sine","Quad"}) do
+    local mb = UI.Create("TextButton", {Size=UDim2.new(0,50,0,20), BackgroundColor3=T.SF, Text=m, TextColor3=T.TX, TextSize=8, Font=Enum.Font.GothamBold, ZIndex=62, Parent=ceC})
+    if mb then UI.Corner(mb, 4)
+        mb.MouseButton1Click:Connect(function()
+            Eng.InterpMode=m ipBtn.Text=m DrawCurve()
+            for _,ch in ipairs(ceC:GetChildren()) do if ch:IsA("TextButton") then ch.BackgroundColor3=T.SF end end
+            mb.BackgroundColor3=T.PR
+        end)
+    end
+end
+spawn(function() while SG and SG.Parent do if CE.Visible then pcall(function() DrawCurve() end) end wait(0.5) end end)
+
+-- EDIT MENU
+EDM = UI.Create("Frame", {Name="EditM", Size=UDim2.new(0,240,0,240), Position=UDim2.new(0,270,0.5,-120), BackgroundColor3=T.BG, Visible=false, ZIndex=55, Parent=SG})
+UI.Corner(EDM, 10) UI.Stroke(EDM, T.PR, 1)
+UI.Create("TextLabel", {Size=UDim2.new(1,0,0,26), BackgroundColor3=Color3.fromRGB(18,20,30), Text="📝 Edit", TextColor3=T.SN, TextSize=12, Font=Enum.Font.GothamBold, ZIndex=56, Parent=EDM})
+cedm = UI.Create("TextButton", {Size=UDim2.new(0,18,0,18), Position=UDim2.new(1,-22,0,4), BackgroundColor3=T.DN, Text="✕", TextColor3=Color3.new(1,1,1), TextSize=9, Font=Enum.Font.GothamBold, ZIndex=57, Parent=EDM})
+UI.Corner(cedm, 4) cedm.MouseButton1Click:Connect(function() EDM.Visible=false end)
+edSc = UI.Create("ScrollingFrame", {Size=UDim2.new(0.9,0,0,195), Position=UDim2.new(0.05,0,0,32), BackgroundTransparency=1, ScrollBarThickness=2, CanvasSize=UDim2.new(0,0,0,200), ZIndex=56, Parent=EDM})
+UI.Create("UIListLayout", {Padding=UDim.new(0,3), Parent=edSc})
+function EditRow(lbl,val,ord,cb)
+    local r = UI.Create("Frame", {Size=UDim2.new(1,0,0,24), BackgroundColor3=T.SF, LayoutOrder=ord, ZIndex=57, Parent=edSc})
+    UI.Corner(r, 4)
+    UI.Create("TextLabel", {Size=UDim2.new(0.45,0,1,0), BackgroundTransparency=1, Text="  "..lbl, TextColor3=T.TX, TextSize=9, Font=Enum.Font.Gotham, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=58, Parent=r})
+    local vb = UI.Create("TextBox", {Size=UDim2.new(0.45,0,0,16), Position=UDim2.new(0.5,0,0,4), BackgroundColor3=Color3.fromRGB(15,17,25), Text=val, TextColor3=T.AC, TextSize=9, Font=Enum.Font.Code, ClearTextOnFocus=false, ZIndex=58, Parent=r})
+    UI.Corner(vb, 3)
+    if vb then vb.FocusLost:Connect(function() if cb then cb(vb.Text) end end) end
+end
+EditRow("Speed",tostring(Eng.Speed),1,function(v) local n=tonumber(v) if n then Eng.Speed=math.clamp(n,0.01,20) end end)
+EditRow("FPS",tostring(Eng.FPS),2,function(v) local n=tonumber(v) if n then Eng.FPS=math.clamp(n,1,120) end end)
+EditRow("GridSize",tostring(Eng.GridSize),3,function(v) local n=tonumber(v) if n then Eng.GridSize=math.clamp(n,0.01,10) end end)
+EditRow("MirrorAxis",Eng.MirrorAxis,4,function(v) if v=="X" or v=="Y" or v=="Z" then Eng.MirrorAxis=v end end)
+editBtn.MouseButton1Click:Connect(function() EDM.Visible=not EDM.Visible end)
+
+-- SETTINGS MENU
+STM = UI.Create("Frame", {Name="SetM", Size=UDim2.new(0,240,0,180), Position=UDim2.new(0,340,0.5,-90), BackgroundColor3=T.BG, Visible=false, ZIndex=55, Parent=SG})
+UI.Corner(STM, 10) UI.Stroke(STM, T.WN, 1)
+UI.Create("TextLabel", {Size=UDim2.new(1,0,0,26), BackgroundColor3=Color3.fromRGB(18,20,30), Text="⚙️ Settings", TextColor3=T.SN, TextSize=12, Font=Enum.Font.GothamBold, ZIndex=56, Parent=STM})
+cstm = UI.Create("TextButton", {Size=UDim2.new(0,18,0,18), Position=UDim2.new(1,-22,0,4), BackgroundColor3=T.DN, Text="✕", TextColor3=Color3.new(1,1,1), TextSize=9, Font=Enum.Font.GothamBold, ZIndex=57, Parent=STM})
+UI.Corner(cstm, 4) cstm.MouseButton1Click:Connect(function() STM.Visible=false end)
+vmSBtn = UI.Create("TextButton", {Size=UDim2.new(0.8,0,0,28), Position=UDim2.new(0.1,0,0,36), BackgroundColor3=T.OK, Text="Global🌎", TextColor3=Color3.new(1,1,1), TextSize=12, Font=Enum.Font.GothamBold, ZIndex=57, Parent=STM})
+UI.Corner(vmSBtn, 6)
+vmSBtn.MouseButton1Click:Connect(function()
+    if Eng.ViewMode=="Global" then Eng.ViewMode="Local" vmSBtn.Text="Local📍" vmSBtn.BackgroundColor3=T.WN vmBtn.Text="Local📍" vmBtn.BackgroundColor3=T.WN
+    else Eng.ViewMode="Global" vmSBtn.Text="Global🌎" vmSBtn.BackgroundColor3=T.OK vmBtn.Text="Global🌎" vmBtn.BackgroundColor3=T.OK end
+end)
+UI.Create("TextLabel", {Size=UDim2.new(0.8,0,0,40), Position=UDim2.new(0.1,0,0,75), BackgroundTransparency=1, Text="60FPS • Global/Local toggle\nUse Studio Lite gizmos\nto manipulate joints", TextColor3=T.TD, TextSize=9, Font=Enum.Font.Gotham, TextWrapped=true, ZIndex=56, Parent=STM})
+settBtn.MouseButton1Click:Connect(function() STM.Visible=not STM.Visible end)
+
+-- KEYBOARD SHORTCUTS
+UserInputService.InputBegan:Connect(function(inp,gp)
+    if gp then return end
+    local kc=inp.KeyCode
+    if kc==Enum.KeyCode.Space then if Eng.IsPlaying then Eng:Pause() else Eng:Play() end
+    elseif kc==Enum.KeyCode.K then Eng:AddKeyframe()
+    elseif kc==Enum.KeyCode.Z and UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then Eng:Redo() else Eng:Undo() end
+    elseif kc==Enum.KeyCode.C and UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then Eng:CopyKF()
+    elseif kc==Enum.KeyCode.V and UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then Eng:PasteKF()
+    elseif kc==Enum.KeyCode.Delete then Eng:RemoveKFAt(Eng.CurrentTime)
+    elseif kc==Enum.KeyCode.Left then Eng.CurrentTime=math.max(0,Eng.CurrentTime-1/Eng.FPS) Eng:GoTo(Eng.CurrentTime)
+    elseif kc==Enum.KeyCode.Right then Eng.CurrentTime=Eng.CurrentTime+1/Eng.FPS Eng:GoTo(Eng.CurrentTime)
+    elseif kc==Enum.KeyCode.Home then Eng:GoTo(0)
+    elseif kc==Enum.KeyCode.End then Eng:GoTo(Eng:GetMaxTime()) end
+end)
+
+-- MOBILE
+isMob = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+if isMob then
+    local ss=workspace.CurrentCamera.ViewportSize
+    pcall(function() Hub.Position=UDim2.new(0.5,-math.min(240,ss.X*0.45),0.05,0) Hub.Size=UDim2.new(0,math.min(480,ss.X*0.92),0,math.min(600,ss.Y*0.88)) end)
+    pcall(function() AF.Size=UDim2.new(1,0,0,math.min(350,ss.Y*0.5)) AF.Position=UDim2.new(0,0,1,-AF.Size.Y.Offset) end)
+    pcall(function() for _,d in ipairs(TBS:GetChildren()) do if d:IsA("TextButton") then d.Size=UDim2.new(0,math.max(d.Size.X.Offset,50),0,math.max(d.Size.Y.Offset,34)) end end end)
+    pcall(function() local tw=0 for _,ch in ipairs(TBS:GetChildren()) do if ch:IsA("TextButton") then tw=tw+ch.Size.X.Offset+3 end end TBS.CanvasSize=UDim2.new(0,tw+20,0,0) end)
+    for _,mn in ipairs({SM,EM,CE,EDM,STM}) do pcall(function() local mw=math.min(mn.Size.X.Offset,ss.X*0.95) local mh=math.min(mn.Size.Y.Offset,ss.Y*0.85) mn.Size=UDim2.new(0,mw,0,mh) mn.Position=UDim2.new(0.5,-mw/2,0.5,-mh/2) end) end
+
+    touchTL=false
+    TLS.InputBegan:Connect(function(inp) if inp.UserInputType==Enum.UserInputType.Touch then touchTL=true pcall(function() local rx=inp.Position.X-TLS.AbsolutePosition.X+TLS.CanvasPosition.X Eng.CurrentTime=math.max(0,rx/pps) Eng:GoTo(Eng.CurrentTime) end) end end)
+    TLS.InputChanged:Connect(function(inp) if touchTL and inp.UserInputType==Enum.UserInputType.Touch then pcall(function() local rx=inp.Position.X-TLS.AbsolutePosition.X+TLS.CanvasPosition.X Eng.CurrentTime=math.max(0,rx/pps) Eng:GoTo(Eng.CurrentTime) end) end end)
+    TLS.InputEnded:Connect(function(inp) if inp.UserInputType==Enum.UserInputType.Touch then touchTL=false end end)
+
+    fb = UI.Create("TextButton", {Size=UDim2.new(0,44,0,44), Position=UDim2.new(0,5,0.4,0), BackgroundColor3=T.PR, Text="❄️", TextSize=20, TextColor3=Color3.new(1,1,1), ZIndex=100, Parent=SG})
+    UI.Corner(fb, 22) UI.Stroke(fb, T.SN, 2)
+    fbd=false fbds=nil fbsp=nil fbtt=0
     fb.InputBegan:Connect(function(inp)
-        if inp.UserInputType==
-           Enum.UserInputType.Touch then
-            fbd=true; fbds=inp.Position
-            fbsp=fb.Position
-            local st=tick()
+        if inp.UserInputType==Enum.UserInputType.Touch then
+            fbd=true fbds=inp.Position fbsp=fb.Position fbtt=tick()
             inp.Changed:Connect(function()
-                if inp.UserInputState==
-                   Enum.UserInputState.End then
+                if inp.UserInputState==Enum.UserInputState.End then
                     fbd=false
-                    if tick()-st<0.2 then
-                        local td=(inp.Position-
-                            fbds).Magnitude
-                        if td<10 then
-                            if Hub.Visible then
-                                Hub.Visible=false
-                            elseif AF.Visible then
-                                AF.Visible=false
-                                Hub.Visible=true
-                            else
-                                Hub.Visible=true
-                            end
-                        end
+                    if tick()-fbtt<0.25 and (inp.Position-fbds).Magnitude<15 then
+                        if Hub.Visible then Hub.Visible=false
+                        elseif AF.Visible then AF.Visible=false Hub.Visible=true
+                        else Hub.Visible=true end
                     end
                 end
             end)
         end
     end)
-    UserInputService.InputChanged:Connect(
-        function(inp)
-        if fbd and inp.UserInputType==
-           Enum.UserInputType.Touch then
-            local d=inp.Position-fbds
-            fb.Position=UDim2.new(
-                fbsp.X.Scale,fbsp.X.Offset+d.X,
-                fbsp.Y.Scale,fbsp.Y.Offset+d.Y)
-        end
-    end)
-    
-    -- Mobile shortcuts bar
-    local msb = UI.Create("Frame", {
-        Size=UDim2.new(1,0,0,36),
-        Position=UDim2.new(0,0,0,0),
-        BackgroundColor3=Color3.fromRGB(12,14,22),
-        BackgroundTransparency=0.3,
-        Visible=false, ZIndex=90, Parent=SG
-    })
-    UI.Create("UIListLayout", {
-        FillDirection=Enum.FillDirection.Horizontal,
-        HorizontalAlignment=
-            Enum.HorizontalAlignment.Center,
-        VerticalAlignment=
-            Enum.VerticalAlignment.Center,
-        Padding=UDim.new(0,3), Parent=msb
-    })
-    
-    local msDefs = {
-        {"⏮",function() Eng:GoTo(0) end},
-        {"⏪",function()
-            Eng.CurrentTime=math.max(0,
-                Eng.CurrentTime-1/Eng.FPS)
-            Eng:GoTo(Eng.CurrentTime) end},
-        {"▶⏸",function()
-            if Eng.IsPlaying then Eng:Pause()
-            else Eng:Play() end end},
-        {"⏩",function()
-            Eng.CurrentTime=
-                Eng.CurrentTime+1/Eng.FPS
-            Eng:GoTo(Eng.CurrentTime) end},
-        {"⏭",function()
-            Eng:GoTo(Eng:GetMaxTime()) end},
-        {"+KF",function()
-            Eng:AddKeyframe() end},
-        {"↩️",function() Eng:Undo() end},
-        {"↪️",function() Eng:Redo() end},
-    }
-    for _, d in ipairs(msDefs) do
-        local mb = UI.Create("TextButton", {
-            Size=UDim2.new(0,38,0,30),
-            BackgroundColor3=T.SF,
-            Text=d[1], TextColor3=T.TX,
-            TextSize=12,
-            Font=Enum.Font.GothamBold,
-            ZIndex=91, Parent=msb
-        })
-        UI.Corner(mb, 6)
-        mb.MouseButton1Click:Connect(d[2])
+    UserInputService.InputChanged:Connect(function(inp) if fbd and inp.UserInputType==Enum.UserInputType.Touch then pcall(function() local d=inp.Position-fbds fb.Position=UDim2.new(fbsp.X.Scale,fbsp.X.Offset+d.X,fbsp.Y.Scale,fbsp.Y.Offset+d.Y) end) end end)
+
+    msb = UI.Create("Frame", {Size=UDim2.new(1,0,0,34), Position=UDim2.new(0,0,0,0), BackgroundColor3=Color3.fromRGB(12,14,22), BackgroundTransparency=0.3, Visible=false, ZIndex=90, Parent=SG})
+    UI.Create("UIListLayout", {FillDirection=Enum.FillDirection.Horizontal, HorizontalAlignment=Enum.HorizontalAlignment.Center, VerticalAlignment=Enum.VerticalAlignment.Center, Padding=UDim.new(0,3), Parent=msb})
+    for _,d in ipairs({{"⏮",function() Eng:GoTo(0) end},{"⏪",function() Eng.CurrentTime=math.max(0,Eng.CurrentTime-1/Eng.FPS) Eng:GoTo(Eng.CurrentTime) end},{"▶⏸",function() if Eng.IsPlaying then Eng:Pause() else Eng:Play() end end},{"⏩",function() Eng.CurrentTime=Eng.CurrentTime+1/Eng.FPS Eng:GoTo(Eng.CurrentTime) end},{"⏭",function() Eng:GoTo(Eng:GetMaxTime()) end},{"+KF",function() Eng:AddKeyframe() end},{"↩️",function() Eng:Undo() end},{"↪️",function() Eng:Redo() end}}) do
+        local mb = UI.Create("TextButton", {Size=UDim2.new(0,36,0,28), BackgroundColor3=T.SF, Text=d[1], TextColor3=T.TX, TextSize=11, Font=Enum.Font.GothamBold, ZIndex=91, Parent=msb})
+        if mb then UI.Corner(mb, 5) mb.MouseButton1Click:Connect(d[2]) end
     end
-    
-    spawn(function()
-        while SG and SG.Parent do
-            msb.Visible = AF and AF.Visible or false
-            wait(0.3)
-        end
-    end)
-    
-    print("📱 Mobile adaptation applied")
+    spawn(function() while SG and SG.Parent do pcall(function() msb.Visible=AF and AF.Visible or false end) wait(0.3) end end)
 end
 
--- ============================================
--- FINAL
--- ============================================
-print("╔════════════════════════════════════════╗")
-print("║  Snow Hub Studios❄️ Loaded!            ║")
-print("║  Snow Animator Pro❄️ v2.0 Ready!       ║")
-print("║                                        ║")
-print("║  Space=Play K=Keyframe                 ║")
-print("║  Ctrl+Z=Undo Ctrl+Shift+Z=Redo         ║")
-print("║  Ctrl+C=Copy Ctrl+V=Paste               ║")
-print("║  Del=RemoveKF ←→=Step                   ║")
-print("║                                        ║")
-print("║  Made with ❄️ Snow Hub Studios          ║")
-print("╚════════════════════════════════════════╝")
+print("╔════════════════════════════════════╗")
+print("║  Snow Hub Studios❄️ Ready!         ║")
+print("║  Snow Animator Pro❄️ v2.0          ║")
+print("║  Space=Play K=Key Ctrl+Z=Undo     ║")
+print("╚════════════════════════════════════╝")
