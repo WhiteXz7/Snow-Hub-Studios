@@ -1894,27 +1894,164 @@ local function TB(txt, tip, ord, col, cb)
     return b
 end
 
--- 1: Select
-local selBtn = TB("🎯Select","",1,T.PU,function()
-    local s = Selection:Get()
-    if #s > 0 then
-        Eng:ScanTarget(s[1])
-        selBtn.Text = "🎯"..s[1].Name:sub(1,7)
-    else
-        local cn
-        cn = Mouse.Button1Down:Connect(function()
-            if Mouse.Target then
-                local tg = Mouse.Target
-                if tg.Parent and
-                   tg.Parent:IsA("Model") then
-                    tg = tg.Parent
-                end
-                Eng:ScanTarget(tg)
-                selBtn.Text = "🎯"..tg.Name:sub(1,7)
-            end
-            cn:Disconnect()
-        end)
+-- 1: Select Target (SEM ERROS)
+local selBtn = TB("🎯Select","",1,T.PU,function()end)
+
+local selectMode = false
+local selectConn1 = nil
+local selectConn2 = nil
+
+local function CleanupSelect()
+    selectMode = false
+    if selectConn1 then
+        pcall(function() selectConn1:Disconnect() end)
+        selectConn1 = nil
     end
+    if selectConn2 then
+        pcall(function() selectConn2:Disconnect() end)
+        selectConn2 = nil
+    end
+end
+
+local function FindBestTarget(obj)
+    if not obj then return nil end
+    
+    -- Se clicou numa parte, tenta achar o Model pai
+    local current = obj
+    
+    -- Sobe até 5 níveis procurando Model
+    for i = 1, 5 do
+        if not current then break end
+        if current:IsA("Model") then
+            return current
+        end
+        current = current.Parent
+    end
+    
+    -- Se não achou Model, usa o próprio objeto
+    if obj:IsA("BasePart") then
+        -- Verifica se o pai é um Model
+        if obj.Parent and obj.Parent:IsA("Model") then
+            return obj.Parent
+        end
+        return obj
+    end
+    
+    -- GUI
+    if obj:IsA("GuiObject") then
+        return obj
+    end
+    if obj:IsA("ScreenGui") or 
+       obj:IsA("SurfaceGui") or
+       obj:IsA("BillboardGui") then
+        return obj
+    end
+    
+    -- Qualquer outro
+    return obj
+end
+
+local function ApplyTarget(tgt)
+    if not tgt then return end
+    
+    CleanupSelect()
+    
+    local name = "?"
+    pcall(function()
+        name = tgt.Name
+    end)
+    
+    local shortName = name
+    if #shortName > 7 then
+        shortName = shortName:sub(1, 7)
+    end
+    
+    Eng:ScanTarget(tgt)
+    selBtn.Text = "🎯" .. shortName
+    selBtn.BackgroundColor3 = T.OK
+    
+    -- Voltar cor após 1.5s
+    spawn(function()
+        wait(1.5)
+        if selBtn and selBtn.Parent then
+            selBtn.BackgroundColor3 = T.PU
+        end
+    end)
+end
+
+selBtn.MouseButton1Click:Connect(function()
+    if selectMode then
+        -- Cancelar seleção
+        CleanupSelect()
+        selBtn.Text = "🎯Select"
+        selBtn.BackgroundColor3 = T.PU
+        return
+    end
+    
+    -- Ativar modo de seleção
+    selectMode = true
+    selBtn.Text = "🎯Click..."
+    selBtn.BackgroundColor3 = T.WN
+    
+    -- MÉTODO: Click no mundo 3D
+    selectConn1 = Mouse.Button1Down:Connect(function()
+        local hit = nil
+        pcall(function()
+            hit = Mouse.Target
+        end)
+        
+        if hit then
+            local tgt = FindBestTarget(hit)
+            if tgt then
+                ApplyTarget(tgt)
+                return
+            end
+        end
+        
+        -- Se não clicou em nada válido
+        CleanupSelect()
+        selBtn.Text = "🎯Select"
+        selBtn.BackgroundColor3 = T.PU
+    end)
+    
+    -- MÉTODO 2: Detectar seleção do Explorer
+    -- Checa periodicamente se algo foi selecionado
+    spawn(function()
+        local checks = 0
+        while selectMode and checks < 200 do
+            checks = checks + 1
+            
+            local ok, result = pcall(function()
+                local sel = Selection:Get()
+                if sel and type(sel) == "table" and #sel > 0 then
+                    local item = sel[1]
+                    if item and typeof(item) == "Instance" then
+                        return item
+                    end
+                end
+                return nil
+            end)
+            
+            if ok and result then
+                local tgt = FindBestTarget(result)
+                if tgt then
+                    ApplyTarget(tgt)
+                    return
+                end
+            end
+            
+            wait(0.15)
+        end
+        
+        -- Timeout após 30 segundos
+        if selectMode then
+            CleanupSelect()
+            if selBtn and selBtn.Parent then
+                selBtn.Text = "🎯Select"
+                selBtn.BackgroundColor3 = T.PU
+            end
+        end
+    end)
 end)
 
 -- 2: +KEY
