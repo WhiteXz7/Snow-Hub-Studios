@@ -1,1323 +1,1333 @@
 --[[
-    Snow Hub Studios - PARTE 1/7
-    Core & Save System
+    Snow Animator Pro v3 - PARTE 1/7
+    CORE - Services, Helpers, Theme
 ]]
+_G.SAP = _G.SAP or {}
+local SAP = _G.SAP
 
-Players = game:GetService("Players")
-RunService = game:GetService("RunService")
-TweenService = game:GetService("TweenService")
-UserInputService = game:GetService("UserInputService")
-HttpService = game:GetService("HttpService")
-ReplicatedStorage = game:GetService("ReplicatedStorage")
-CoreGui = game:GetService("CoreGui")
-Selection = nil
-pcall(function() Selection = game:GetService("Selection") end)
-LocalPlayer = Players.LocalPlayer
-Mouse = LocalPlayer:GetMouse()
+SAP.Players = game:GetService("Players")
+SAP.RS = game:GetService("RunService")
+SAP.TS = game:GetService("TweenService")
+SAP.UIS = game:GetService("UserInputService")
+SAP.HTTP = game:GetService("HttpService")
+SAP.RepStorage = game:GetService("ReplicatedStorage")
+SAP.LP = SAP.Players.LocalPlayer
+SAP.Mouse = SAP.LP:GetMouse()
+
 pcall(function()
-    if CoreGui:FindFirstChild("SnowHubStudios") then
-        CoreGui:FindFirstChild("SnowHubStudios"):Destroy()
-    end
+    local old = SAP.LP.PlayerGui:FindFirstChild("SnowAnimator")
+    if old then old:Destroy() end
 end)
 
-SaveSystem = {}
-SaveSystem.__index = SaveSystem
-function SaveSystem.new()
-    local self = setmetatable({}, SaveSystem)
-    self.Slots = {}
-    for i = 1, 10 do
-        self.Slots[i] = {Name = "", Data = nil, Exists = false}
-    end
-    self:Load()
-    return self
-end
-function SaveSystem:GetFolder()
-    local f = ReplicatedStorage:FindFirstChild("SnowAnimSaves")
-    if not f then
-        f = Instance.new("Folder")
-        f.Name = "SnowAnimSaves"
-        f.Parent = ReplicatedStorage
-    end
-    return f
-end
-function SaveSystem:Save()
-    pcall(function()
-        local folder = self:GetFolder()
-        for i = 1, 10 do
-            local sf = folder:FindFirstChild("S"..i)
-            if not sf then
-                sf = Instance.new("Folder")
-                sf.Name = "S"..i
-                sf.Parent = folder
-            end
-            local nv = sf:FindFirstChild("N")
-            if not nv then nv = Instance.new("StringValue") nv.Name = "N" nv.Parent = sf end
-            nv.Value = self.Slots[i].Name or ""
-            local dv = sf:FindFirstChild("D")
-            if not dv then dv = Instance.new("StringValue") dv.Name = "D" dv.Parent = sf end
-            if self.Slots[i].Data then
-                dv.Value = HttpService:JSONEncode(self.Slots[i].Data)
-            else
-                dv.Value = ""
-            end
-            local ev = sf:FindFirstChild("E")
-            if not ev then ev = Instance.new("BoolValue") ev.Name = "E" ev.Parent = sf end
-            ev.Value = self.Slots[i].Exists
-        end
-    end)
-end
-function SaveSystem:Load()
-    pcall(function()
-        local folder = self:GetFolder()
-        for i = 1, 10 do
-            local sf = folder:FindFirstChild("S"..i)
-            if sf then
-                local nv = sf:FindFirstChild("N")
-                local dv = sf:FindFirstChild("D")
-                local ev = sf:FindFirstChild("E")
-                if nv then self.Slots[i].Name = nv.Value end
-                if dv and dv.Value ~= "" then
-                    self.Slots[i].Data = HttpService:JSONDecode(dv.Value)
-                end
-                if ev then self.Slots[i].Exists = ev.Value end
-            end
-        end
-    end)
-end
-function SaveSystem:SaveSlot(idx, name, data)
-    self.Slots[idx] = {Name = name, Data = data, Exists = true}
-    self:Save()
-end
-function SaveSystem:DeleteSlot(idx)
-    self.Slots[idx] = {Name = "", Data = nil, Exists = false}
-    self:Save()
-end
-function SaveSystem:GetSlot(idx) return self.Slots[idx] end
-saveSystem = SaveSystem.new()
+SAP.SG = Instance.new("ScreenGui")
+SAP.SG.Name = "SnowAnimator"
+SAP.SG.ResetOnSpawn = false
+SAP.SG.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+SAP.SG.Parent = SAP.LP.PlayerGui
 
-UI = {}
-function UI.Create(class, props)
-    local ok, inst = pcall(function()
-        local i = Instance.new(class)
-        for k, v in pairs(props) do
-            if k ~= "Parent" then pcall(function() i[k] = v end) end
+function SAP.New(c, p)
+    local ok, i = pcall(Instance.new, c)
+    if not ok or not i then return nil end
+    if type(p) == "table" then
+        for k, v in pairs(p) do
+            if k ~= "Parent" then
+                pcall(function() i[k] = v end)
+            end
         end
-        if props.Parent then i.Parent = props.Parent end
-        return i
-    end)
-    if ok and inst then return inst end
-    return nil
-end
-function UI.Corner(p, r)
-    if not p then return end
-    return UI.Create("UICorner", {CornerRadius = UDim.new(0, r or 8), Parent = p})
-end
-function UI.Stroke(p, c, t)
-    if not p then return end
-    return UI.Create("UIStroke", {Color = c or Color3.fromRGB(100,150,255), Thickness = t or 1, Parent = p})
-end
-function UI.Grad(p, c1, c2, rot)
-    if not p then return end
-    return UI.Create("UIGradient", {Color = ColorSequence.new(c1, c2), Rotation = rot or 90, Parent = p})
-end
-function UI.Pad(p, t, b, l, r)
-    if not p then return end
-    return UI.Create("UIPadding", {PaddingTop=UDim.new(0,t or 4), PaddingBottom=UDim.new(0,b or 4), PaddingLeft=UDim.new(0,l or 4), PaddingRight=UDim.new(0,r or 4), Parent = p})
+        if p.Parent then i.Parent = p.Parent end
+    end
+    return i
 end
 
-T = {
-    BG = Color3.fromRGB(20,22,30),
-    SF = Color3.fromRGB(30,33,45),
-    SL = Color3.fromRGB(40,44,60),
-    PR = Color3.fromRGB(80,140,255),
-    PD = Color3.fromRGB(50,100,200),
-    AC = Color3.fromRGB(100,200,255),
-    TX = Color3.fromRGB(220,225,240),
-    TD = Color3.fromRGB(140,145,165),
-    OK = Color3.fromRGB(80,200,120),
-    WN = Color3.fromRGB(255,180,50),
-    DN = Color3.fromRGB(255,80,80),
-    SN = Color3.fromRGB(200,220,255),
-    TL = Color3.fromRGB(25,28,38),
-    KF = Color3.fromRGB(255,200,50),
-    KS = Color3.fromRGB(255,120,50),
-    PU = Color3.fromRGB(150,100,255),
-    CY = Color3.fromRGB(0,200,200),
+function SAP.Corner(p, r)
+    if not p then return end
+    SAP.New("UICorner", {CornerRadius = UDim.new(0, r or 6), Parent = p})
+end
+
+function SAP.Stroke(p, c, t)
+    if not p then return end
+    SAP.New("UIStroke", {Color = c or Color3.fromRGB(60,80,120), Thickness = t or 1, Parent = p})
+end
+
+SAP.C = {
+    bg = Color3.fromRGB(18,20,28),
+    bg2 = Color3.fromRGB(26,29,40),
+    bg3 = Color3.fromRGB(35,38,52),
+    blue = Color3.fromRGB(70,130,255),
+    cyan = Color3.fromRGB(0,190,200),
+    green = Color3.fromRGB(70,200,110),
+    red = Color3.fromRGB(240,70,70),
+    yellow = Color3.fromRGB(255,200,50),
+    orange = Color3.fromRGB(255,150,40),
+    purple = Color3.fromRGB(140,90,255),
+    text = Color3.fromRGB(215,220,235),
+    dim = Color3.fromRGB(120,125,145),
+    white = Color3.fromRGB(255,255,255),
+    kf = Color3.fromRGB(255,200,50),
+    kfSel = Color3.fromRGB(255,120,40),
+    tl = Color3.fromRGB(22,24,34),
 }
-print("P1 OK")
+
+print("[SAP] Part 1 OK")
 
 --[[
-    Snow Hub Studios - PARTE 2/7
-    Animation Engine
+    Snow Animator Pro v3 - PARTE 2/7
+    ENGINE - O coração da animação
 ]]
+local SAP = _G.SAP
+local E = {}
+SAP.E = E
 
-EC = {}
-EC.__index = EC
-function EC.new()
-    local s = setmetatable({}, EC)
-    s.Keyframes = {}
-    s.CurrentTime = 0
-    s.FPS = 60
-    s.IsPlaying = false
-    s.IsLooping = false
-    s.Speed = 1
-    s.Target = nil
-    s.AllJoints = {}
-    s.AnimType = "Core"
-    s.InterpMode = "Linear"
-    s.ViewMode = "Global"
-    s.UndoStack = {}
-    s.RedoStack = {}
-    s.Clipboard = nil
-    s.ExportCount = 0
-    s.AutoKey = false
-    s.OnionSkin = false
-    s.MirrorAxis = "X"
-    s.SnapGrid = false
-    s.GridSize = 0.5
-    s.Markers = {}
-    s.EasingDir = "InOut"
-    s.PlayConn = nil
-    s.AnimTypes = {"Core","Idle","Walk","Run","Jump","Climb","Fall","FreeFall","Swim","SwimIdle","Seated","Action1","Action2","Action3","Action4","Emote","Dance","Dance2","Dance3","Laugh","Cheer","Wave","Point","Custom1","Custom2","Custom3"}
-    s.InterpModes = {"Linear","Cubic","Bounce","Elastic","Back","Quad","Quart","Quint","Sine","Expo","Circ","Constant"}
-    s.EasingDirs = {"In","Out","InOut"}
-    return s
+E.kfs = {}
+E.time = 0
+E.speed = 1
+E.fps = 60
+E.playing = false
+E.looping = false
+E.target = nil
+E.joints = {}
+E.undos = {}
+E.redos = {}
+E.clip = nil
+E.animType = "Action1"
+E.interpMode = "Linear"
+E.easingDir = "InOut"
+E.viewMode = "Global"
+E.autoKey = false
+E.markers = {}
+E.conn = nil
+E.mirrorAxis = "X"
+
+E.animTypes = {"Core","Idle","Walk","Run","Jump","Climb","Fall","FreeFall","Swim","SwimIdle","Seated","Action1","Action2","Action3","Action4","Emote","Dance","Dance2","Dance3","Laugh","Cheer","Wave","Point","Custom1","Custom2","Custom3"}
+E.interpModes = {"Linear","Cubic","Bounce","Elastic","Back","Quad","Quart","Quint","Sine","Expo","Circ","Constant"}
+E.easingDirs = {"In","Out","InOut"}
+
+function E.bounce(t)
+    if t<1/2.75 then return 7.5625*t*t
+    elseif t<2/2.75 then t=t-1.5/2.75 return 7.5625*t*t+.75
+    elseif t<2.5/2.75 then t=t-2.25/2.75 return 7.5625*t*t+.9375
+    else t=t-2.625/2.75 return 7.5625*t*t+.984375 end
 end
-function EC:PushUndo()
-    table.insert(self.UndoStack, {KF=self:CopyKFs(), Time=self.CurrentTime, Spd=self.Speed})
-    if #self.UndoStack > 80 then table.remove(self.UndoStack, 1) end
-    self.RedoStack = {}
-end
-function EC:Undo()
-    if #self.UndoStack == 0 then return end
-    table.insert(self.RedoStack, {KF=self:CopyKFs(), Time=self.CurrentTime, Spd=self.Speed})
-    local s = table.remove(self.UndoStack)
-    self.Keyframes = s.KF
-    self.CurrentTime = s.Time
-    self.Speed = s.Spd
-end
-function EC:Redo()
-    if #self.RedoStack == 0 then return end
-    table.insert(self.UndoStack, {KF=self:CopyKFs(), Time=self.CurrentTime, Spd=self.Speed})
-    local s = table.remove(self.RedoStack)
-    self.Keyframes = s.KF
-    self.CurrentTime = s.Time
-    self.Speed = s.Spd
-end
-function EC:CopyKFs()
-    local c = {}
-    for i, kf in ipairs(self.Keyframes) do
-        local cp = {time=kf.time, joints={}}
-        for n, d in pairs(kf.joints) do
-            local dd = {}
-            for k, v in pairs(d) do dd[k] = v end
-            cp.joints[n] = dd
-        end
-        c[i] = cp
-    end
-    return c
-end
-function EC:JValid(j)
-    if not j or not j.Inst then return false end
-    local ok, r = pcall(function() return j.Inst.Parent ~= nil end)
-    return ok and r
-end
-function EC:ScanTarget(target)
-    self.AllJoints = {}
-    self.Target = target
-    if not target then return end
-    local mp = {}
-    pcall(function()
-        for _, ch in ipairs(target:GetDescendants()) do
-            pcall(function()
-                if ch:IsA("Motor6D") then
-                    table.insert(self.AllJoints, {Type="Motor6D", Inst=ch, Name=ch.Name, OC0=ch.C0, OC1=ch.C1})
-                    if ch.Part1 then mp[ch.Part1] = true end
-                end
-            end)
-        end
-    end)
-    pcall(function()
-        for _, ch in ipairs(target:GetDescendants()) do
-            pcall(function()
-                if ch:IsA("BasePart") and not ch:IsA("Terrain") and not mp[ch] then
-                    table.insert(self.AllJoints, {Type="Part", Inst=ch, Name=ch.Name.."_P", OCF=ch.CFrame})
-                end
-            end)
-        end
-    end)
-    pcall(function()
-        if target:IsA("BasePart") and not target:IsA("Terrain") then
-            local found = false
-            for _, j in ipairs(self.AllJoints) do if j.Inst == target then found = true end end
-            if not found then
-                table.insert(self.AllJoints, {Type="Part", Inst=target, Name=target.Name.."_P", OCF=target.CFrame})
-            end
-        end
-    end)
-    pcall(function()
-        for _, ch in ipairs(target:GetDescendants()) do
-            pcall(function()
-                if ch:IsA("GuiObject") then
-                    table.insert(self.AllJoints, {Type="GUI", Inst=ch, Name=ch.Name.."_G", OPos=ch.Position, OSize=ch.Size, ORot=ch.Rotation})
-                end
-            end)
-        end
-    end)
-    pcall(function()
-        for _, ch in ipairs(target:GetDescendants()) do
-            pcall(function()
-                if ch:IsA("ParticleEmitter") or ch:IsA("PointLight") or ch:IsA("SpotLight") or ch:IsA("Fire") or ch:IsA("Smoke") then
-                    table.insert(self.AllJoints, {Type="FX", Inst=ch, Name=ch.Name.."_FX"})
-                end
-            end)
-        end
-    end)
-end
-function EC:AddKeyframe()
-    self:PushUndo()
-    local kf = {time=self.CurrentTime, joints={}}
-    for _, j in ipairs(self.AllJoints) do
-        if self:JValid(j) then
-            pcall(function()
-                if j.Type == "Motor6D" then
-                    kf.joints[j.Name] = {CF=j.Inst.C0, ES=self.InterpMode, ED=self.EasingDir}
-                elseif j.Type == "Part" then
-                    kf.joints[j.Name] = {CF=j.Inst.CFrame, SZ=j.Inst.Size, TR=j.Inst.Transparency, CL=j.Inst.Color, ES=self.InterpMode, ED=self.EasingDir}
-                elseif j.Type == "GUI" then
-                    kf.joints[j.Name] = {Pos=j.Inst.Position, Sz=j.Inst.Size, Rot=j.Inst.Rotation, Tr=j.Inst.BackgroundTransparency, ES=self.InterpMode, ED=self.EasingDir}
-                elseif j.Type == "FX" then
-                    local d = {ES=self.InterpMode, ED=self.EasingDir}
-                    pcall(function() if j.Inst:IsA("ParticleEmitter") then d.Rate = j.Inst.Rate end end)
-                    pcall(function() if j.Inst:IsA("PointLight") or j.Inst:IsA("SpotLight") then d.Bright=j.Inst.Brightness d.Range=j.Inst.Range end end)
-                    kf.joints[j.Name] = d
-                end
-            end)
-        end
-    end
-    local nl = {}
-    for _, ek in ipairs(self.Keyframes) do
-        if math.abs(ek.time - self.CurrentTime) >= 0.001 then table.insert(nl, ek) end
-    end
-    self.Keyframes = nl
-    table.insert(self.Keyframes, kf)
-    table.sort(self.Keyframes, function(a,b) return a.time < b.time end)
-end
-function EC:RemoveKFAt(time)
-    self:PushUndo()
-    local nl = {}
-    for _, kf in ipairs(self.Keyframes) do
-        if math.abs(kf.time - time) >= 0.05 then table.insert(nl, kf) end
-    end
-    self.Keyframes = nl
-end
-function EC:GetMaxTime()
-    local mx = 0
-    for _, kf in ipairs(self.Keyframes) do if kf.time > mx then mx = kf.time end end
-    return math.max(mx, 0.1)
-end
-function EC.BounceOut(t)
-    if t < 1/2.75 then return 7.5625*t*t
-    elseif t < 2/2.75 then t=t-1.5/2.75 return 7.5625*t*t+0.75
-    elseif t < 2.5/2.75 then t=t-2.25/2.75 return 7.5625*t*t+0.9375
-    else t=t-2.625/2.75 return 7.5625*t*t+0.984375 end
-end
-function EC:ApplyEasing(a, style, dir)
-    if not style or style == "Linear" then return a end
-    if style == "Constant" then return a >= 1 and 1 or 0 end
-    local function eIn(t, s)
+
+function E.ease(a, s, d)
+    if not s or s=="Linear" then return a end
+    if s=="Constant" then return a>=1 and 1 or 0 end
+    local function ei(t)
         if s=="Quad" then return t*t end
         if s=="Cubic" then return t*t*t end
         if s=="Quart" then return t^4 end
         if s=="Quint" then return t^5 end
         if s=="Sine" then return 1-math.cos(t*math.pi/2) end
-        if s=="Expo" then return t==0 and 0 or math.pow(2,10*(t-1)) end
-        if s=="Circ" then return 1-math.sqrt(math.abs(1-t*t)) end
-        if s=="Back" then local c=1.70158 return t*t*((c+1)*t-c) end
-        if s=="Elastic" then if t==0 or t==1 then return t end return -math.pow(2,10*(t-1))*math.sin((t-1.1)*5*math.pi) end
-        if s=="Bounce" then return 1-EC.BounceOut(1-t) end
+        if s=="Expo" then return t==0 and 0 or 2^(10*(t-1)) end
+        if s=="Circ" then return 1-math.sqrt(math.max(0,1-t*t)) end
+        if s=="Back" then return t*t*(2.70158*t-1.70158) end
+        if s=="Elastic" then
+            if t==0 or t==1 then return t end
+            return -2^(10*(t-1))*math.sin((t-1.1)*5*math.pi)
+        end
+        if s=="Bounce" then return 1-E.bounce(1-t) end
         return t
     end
-    local function eOut(t, s)
-        if s=="Bounce" then return EC.BounceOut(t) end
-        return 1-eIn(1-t, s)
+    local function eo(t)
+        if s=="Bounce" then return E.bounce(t) end
+        return 1-ei(1-t)
     end
-    dir = dir or "InOut"
-    if dir=="In" then return eIn(a, style)
-    elseif dir=="Out" then return eOut(a, style)
-    else
-        if a < 0.5 then return eIn(a*2, style)/2
-        else return 0.5+eOut((a-0.5)*2, style)/2 end
-    end
+    d=d or "InOut"
+    if d=="In" then return ei(a)
+    elseif d=="Out" then return eo(a)
+    else return a<.5 and ei(a*2)/2 or .5+eo((a-.5)*2)/2 end
 end
-function EC:LerpUD2(a,b,t)
-    local ok,r = pcall(function() return UDim2.new(a.X.Scale+(b.X.Scale-a.X.Scale)*t, a.X.Offset+(b.X.Offset-a.X.Offset)*t, a.Y.Scale+(b.Y.Scale-a.Y.Scale)*t, a.Y.Offset+(b.Y.Offset-a.Y.Offset)*t) end)
-    return ok and r or a
-end
-function EC:LerpC3(a,b,t)
-    local ok,r = pcall(function() return Color3.new(a.R+(b.R-a.R)*t, a.G+(b.G-a.G)*t, a.B+(b.B-a.B)*t) end)
-    return ok and r or a
-end
-function EC:LerpNum(a,b,t) if a==nil or b==nil then return a end return a+(b-a)*t end
-function EC:LerpCF(a,b,t) local ok,r = pcall(function() return a:Lerp(b,t) end) return ok and r or a end
-function EC:LerpV3(a,b,t) local ok,r = pcall(function() return a:Lerp(b,t) end) return ok and r or a end
 
-function EC:Evaluate(time)
-    if #self.Keyframes == 0 then return nil end
-    if #self.Keyframes == 1 then return self.Keyframes[1] end
-    local prev, nxt = nil, nil
-    for i = 1, #self.Keyframes do
-        local kf = self.Keyframes[i]
-        if kf.time <= time then prev = kf end
-        if kf.time >= time and nxt == nil then nxt = kf end
+function E.lerpCF(a,b,t) local ok,r=pcall(function() return a:Lerp(b,t) end) return ok and r or a end
+function E.lerpV3(a,b,t) local ok,r=pcall(function() return a:Lerp(b,t) end) return ok and r or a end
+function E.lerpN(a,b,t) return a+(b-a)*t end
+function E.lerpC3(a,b,t) return Color3.new(a.R+(b.R-a.R)*t,a.G+(b.G-a.G)*t,a.B+(b.B-a.B)*t) end
+function E.lerpU2(a,b,t) return UDim2.new(a.X.Scale+(b.X.Scale-a.X.Scale)*t,a.X.Offset+(b.X.Offset-a.X.Offset)*t,a.Y.Scale+(b.Y.Scale-a.Y.Scale)*t,a.Y.Offset+(b.Y.Offset-a.Y.Offset)*t) end
+
+function E.valid(j)
+    if not j or not j.inst then return false end
+    local ok,r=pcall(function() return j.inst.Parent~=nil end)
+    return ok and r
+end
+
+function E.scan(tgt)
+    E.joints = {}
+    E.target = tgt
+    if not tgt then return end
+    local mp = {}
+    pcall(function()
+        for _,c in ipairs(tgt:GetDescendants()) do
+            pcall(function()
+                if c:IsA("Motor6D") then
+                    table.insert(E.joints, {t="m6d", inst=c, name=c.Name, o=c.C0})
+                    if c.Part1 then mp[c.Part1]=true end
+                end
+            end)
+        end
+    end)
+    pcall(function()
+        for _,c in ipairs(tgt:GetDescendants()) do
+            pcall(function()
+                if c:IsA("BasePart") and not c:IsA("Terrain") and not mp[c] then
+                    table.insert(E.joints, {t="part", inst=c, name=c.Name.."_p", o=c.CFrame})
+                end
+            end)
+        end
+    end)
+    pcall(function()
+        if tgt:IsA("BasePart") then
+            local f=false
+            for _,j in ipairs(E.joints) do if j.inst==tgt then f=true break end end
+            if not f then table.insert(E.joints, {t="part", inst=tgt, name=tgt.Name.."_p", o=tgt.CFrame}) end
+        end
+    end)
+    pcall(function()
+        for _,c in ipairs(tgt:GetDescendants()) do
+            pcall(function()
+                if c:IsA("GuiObject") then
+                    table.insert(E.joints, {t="gui", inst=c, name=c.Name.."_g", oP=c.Position, oS=c.Size, oR=c.Rotation})
+                end
+            end)
+        end
+    end)
+end
+
+function E.snapshot()
+    local d = {}
+    for _,j in ipairs(E.joints) do
+        if E.valid(j) then
+            pcall(function()
+                if j.t=="m6d" then
+                    d[j.name] = {cf=j.inst.C0, es=E.interpMode, ed=E.easingDir}
+                elseif j.t=="part" then
+                    d[j.name] = {cf=j.inst.CFrame, sz=j.inst.Size, tr=j.inst.Transparency, cl=j.inst.Color, es=E.interpMode, ed=E.easingDir}
+                elseif j.t=="gui" then
+                    d[j.name] = {pos=j.inst.Position, sz=j.inst.Size, rot=j.inst.Rotation, tr=j.inst.BackgroundTransparency, es=E.interpMode, ed=E.easingDir}
+                end
+            end)
+        end
     end
-    if not prev then prev = self.Keyframes[1] end
-    if not nxt then nxt = self.Keyframes[#self.Keyframes] end
-    if prev == nxt then return prev end
-    local diff = nxt.time - prev.time
-    if diff <= 0 then return prev end
-    local raw = math.clamp((time - prev.time)/diff, 0, 1)
-    local result = {time=time, joints={}}
-    local allN = {}
-    for jn,_ in pairs(prev.joints) do allN[jn] = true end
-    for jn,_ in pairs(nxt.joints) do allN[jn] = true end
-    for jn,_ in pairs(allN) do
-        local pd = prev.joints[jn]
-        local nd = nxt.joints[jn]
-        if pd and not nd then result.joints[jn] = pd
-        elseif nd and not pd then result.joints[jn] = nd
-        elseif pd and nd then
-            local es = nd.ES or "Linear"
-            local ed = nd.ED or "InOut"
-            local ea = self:ApplyEasing(raw, es, ed)
-            local ip = {ES=es, ED=ed}
-            if pd.CF and nd.CF then ip.CF = self:LerpCF(pd.CF, nd.CF, ea) elseif pd.CF then ip.CF=pd.CF elseif nd.CF then ip.CF=nd.CF end
-            if pd.SZ and nd.SZ then
-                if typeof(pd.SZ)=="Vector3" and typeof(nd.SZ)=="Vector3" then ip.SZ=self:LerpV3(pd.SZ,nd.SZ,ea)
-                elseif typeof(pd.SZ)=="UDim2" and typeof(nd.SZ)=="UDim2" then ip.SZ=self:LerpUD2(pd.SZ,nd.SZ,ea)
-                else ip.SZ=nd.SZ end
-            elseif pd.SZ then ip.SZ=pd.SZ elseif nd.SZ then ip.SZ=nd.SZ end
-            if pd.TR~=nil and nd.TR~=nil then ip.TR=self:LerpNum(pd.TR,nd.TR,ea) elseif pd.TR~=nil then ip.TR=pd.TR elseif nd.TR~=nil then ip.TR=nd.TR end
-            if pd.CL and nd.CL then ip.CL=self:LerpC3(pd.CL,nd.CL,ea) elseif pd.CL then ip.CL=pd.CL elseif nd.CL then ip.CL=nd.CL end
-            if pd.Pos and nd.Pos then ip.Pos=self:LerpUD2(pd.Pos,nd.Pos,ea) elseif pd.Pos then ip.Pos=pd.Pos elseif nd.Pos then ip.Pos=nd.Pos end
-            if pd.Sz and nd.Sz then ip.Sz=self:LerpUD2(pd.Sz,nd.Sz,ea) elseif pd.Sz then ip.Sz=pd.Sz elseif nd.Sz then ip.Sz=nd.Sz end
-            if pd.Rot~=nil and nd.Rot~=nil then ip.Rot=self:LerpNum(pd.Rot,nd.Rot,ea) elseif pd.Rot~=nil then ip.Rot=pd.Rot elseif nd.Rot~=nil then ip.Rot=nd.Rot end
-            if pd.Tr~=nil and nd.Tr~=nil then ip.Tr=self:LerpNum(pd.Tr,nd.Tr,ea) elseif pd.Tr~=nil then ip.Tr=pd.Tr elseif nd.Tr~=nil then ip.Tr=nd.Tr end
-            if pd.Rate~=nil and nd.Rate~=nil then ip.Rate=self:LerpNum(pd.Rate,nd.Rate,ea) elseif pd.Rate~=nil then ip.Rate=pd.Rate end
-            if pd.Bright~=nil and nd.Bright~=nil then ip.Bright=self:LerpNum(pd.Bright,nd.Bright,ea) elseif pd.Bright~=nil then ip.Bright=pd.Bright end
-            if pd.Range~=nil and nd.Range~=nil then ip.Range=self:LerpNum(pd.Range,nd.Range,ea) elseif pd.Range~=nil then ip.Range=pd.Range end
-            result.joints[jn] = ip
+    return d
+end
+
+function E.pushUndo()
+    local copy = {}
+    for i,kf in ipairs(E.kfs) do
+        local jc = {}
+        for k,v in pairs(kf.j) do
+            local vc = {}
+            for kk,vv in pairs(v) do vc[kk]=vv end
+            jc[k]=vc
+        end
+        copy[i] = {t=kf.t, j=jc}
+    end
+    table.insert(E.undos, {kf=copy, time=E.time, spd=E.speed})
+    if #E.undos>60 then table.remove(E.undos,1) end
+    E.redos = {}
+end
+
+function E.undo()
+    if #E.undos==0 then return end
+    local cur = {}
+    for i,kf in ipairs(E.kfs) do
+        local jc={} for k,v in pairs(kf.j) do local vc={} for kk,vv in pairs(v) do vc[kk]=vv end jc[k]=vc end
+        cur[i]={t=kf.t,j=jc}
+    end
+    table.insert(E.redos, {kf=cur, time=E.time, spd=E.speed})
+    local s = table.remove(E.undos)
+    E.kfs=s.kf E.time=s.time E.speed=s.spd
+end
+
+function E.redo()
+    if #E.redos==0 then return end
+    local cur = {}
+    for i,kf in ipairs(E.kfs) do
+        local jc={} for k,v in pairs(kf.j) do local vc={} for kk,vv in pairs(v) do vc[kk]=vv end jc[k]=vc end
+        cur[i]={t=kf.t,j=jc}
+    end
+    table.insert(E.undos, {kf=cur, time=E.time, spd=E.speed})
+    local s = table.remove(E.redos)
+    E.kfs=s.kf E.time=s.time E.speed=s.spd
+end
+
+function E.addKF()
+    E.pushUndo()
+    local data = E.snapshot()
+    if not data or not next(data) then return end
+    local nl = {}
+    for _,kf in ipairs(E.kfs) do
+        if math.abs(kf.t-E.time)>=0.001 then table.insert(nl,kf) end
+    end
+    E.kfs = nl
+    table.insert(E.kfs, {t=E.time, j=data})
+    table.sort(E.kfs, function(a,b) return a.t<b.t end)
+end
+
+function E.removeKF()
+    E.pushUndo()
+    local nl = {}
+    for _,kf in ipairs(E.kfs) do
+        if math.abs(kf.t-E.time)>=0.05 then table.insert(nl,kf) end
+    end
+    E.kfs = nl
+end
+
+function E.maxTime()
+    local m=0
+    for _,kf in ipairs(E.kfs) do if kf.t>m then m=kf.t end end
+    return math.max(m, 0.1)
+end
+
+function E.eval(time)
+    local n = #E.kfs
+    if n==0 then return nil end
+    if n==1 then return E.kfs[1].j end
+    local p,nx = nil,nil
+    for i=1,n do
+        if E.kfs[i].t<=time then p=E.kfs[i] end
+        if E.kfs[i].t>=time and nx==nil then nx=E.kfs[i] end
+    end
+    if not p then p=E.kfs[1] end
+    if not nx then nx=E.kfs[n] end
+    if p==nx then return p.j end
+    local diff = nx.t-p.t
+    if diff<=0 then return p.j end
+    local raw = math.clamp((time-p.t)/diff, 0, 1)
+
+    local result = {}
+    local all = {}
+    for k in pairs(p.j) do all[k]=true end
+    for k in pairs(nx.j) do all[k]=true end
+
+    for k in pairs(all) do
+        local a,b = p.j[k], nx.j[k]
+        if a and not b then result[k]=a
+        elseif b and not a then result[k]=b
+        elseif a and b then
+            local ea = E.ease(raw, b.es or "Linear", b.ed or "InOut")
+            local r = {es=b.es, ed=b.ed}
+            if a.cf and b.cf then r.cf=E.lerpCF(a.cf,b.cf,ea) end
+            if a.sz and b.sz then
+                if typeof(a.sz)=="Vector3" then r.sz=E.lerpV3(a.sz,b.sz,ea)
+                elseif typeof(a.sz)=="UDim2" then r.sz=E.lerpU2(a.sz,b.sz,ea) end
+            end
+            if a.tr~=nil and b.tr~=nil then r.tr=E.lerpN(a.tr,b.tr,ea) end
+            if a.cl and b.cl then r.cl=E.lerpC3(a.cl,b.cl,ea) end
+            if a.pos and b.pos then r.pos=E.lerpU2(a.pos,b.pos,ea) end
+            if a.rot~=nil and b.rot~=nil then r.rot=E.lerpN(a.rot,b.rot,ea) end
+            result[k]=r
         end
     end
     return result
 end
 
-function EC:ApplyFrame(fd)
-    if not fd or not fd.joints then return end
-    for i = 1, #self.AllJoints do
-        local j = self.AllJoints[i]
-        if j and self:JValid(j) then
-            local d = fd.joints[j.Name]
-            if d then
-                pcall(function()
-                    if j.Type=="Motor6D" then if d.CF then j.Inst.C0=d.CF end
-                    elseif j.Type=="Part" then
-                        if d.CF then j.Inst.CFrame=d.CF end
-                        if d.SZ and typeof(d.SZ)=="Vector3" then j.Inst.Size=d.SZ end
-                        if d.TR~=nil then j.Inst.Transparency=d.TR end
-                        if d.CL then j.Inst.Color=d.CL end
-                    elseif j.Type=="GUI" then
-                        if d.Pos then j.Inst.Position=d.Pos end
-                        if d.Sz then j.Inst.Size=d.Sz end
-                        if d.Rot~=nil then j.Inst.Rotation=d.Rot end
-                        if d.Tr~=nil then j.Inst.BackgroundTransparency=d.Tr end
-                    elseif j.Type=="FX" then
-                        pcall(function() if d.Rate~=nil then j.Inst.Rate=d.Rate end end)
-                        pcall(function() if d.Bright~=nil then j.Inst.Brightness=d.Bright end end)
-                        pcall(function() if d.Range~=nil then j.Inst.Range=d.Range end end)
-                    end
-                end)
-            end
+function E.apply(data)
+    if not data then return end
+    for _,j in ipairs(E.joints) do
+        local d = data[j.name]
+        if d and E.valid(j) then
+            pcall(function()
+                if j.t=="m6d" then
+                    if d.cf then j.inst.C0=d.cf end
+                elseif j.t=="part" then
+                    if d.cf then j.inst.CFrame=d.cf end
+                    if d.sz and typeof(d.sz)=="Vector3" then j.inst.Size=d.sz end
+                    if d.tr~=nil then j.inst.Transparency=d.tr end
+                    if d.cl then j.inst.Color=d.cl end
+                elseif j.t=="gui" then
+                    if d.pos then j.inst.Position=d.pos end
+                    if d.sz then j.inst.Size=d.sz end
+                    if d.rot~=nil then j.inst.Rotation=d.rot end
+                    if d.tr~=nil then j.inst.BackgroundTransparency=d.tr end
+                end
+            end)
         end
     end
 end
 
-function EC:GoTo(time)
-    self.CurrentTime = math.max(0, time)
-    local fd = self:Evaluate(self.CurrentTime)
-    if fd then self:ApplyFrame(fd) end
+function E.goTo(t)
+    E.time = math.max(0,t)
+    local d = E.eval(E.time)
+    if d then E.apply(d) end
 end
-function EC:Play()
-    if self.IsPlaying then return end
-    if #self.Keyframes < 2 then return end
-    self.IsPlaying = true
+
+function E.play()
+    if E.playing then return end
+    if #E.kfs<2 then return end
+    E.playing = true
     local st = tick()
-    local sa = self.CurrentTime
-    local mx = self:GetMaxTime()
-    if self.PlayConn then pcall(function() self.PlayConn:Disconnect() end) self.PlayConn = nil end
-    self.PlayConn = RunService.RenderStepped:Connect(function()
-        if not self.IsPlaying then
-            pcall(function() if self.PlayConn then self.PlayConn:Disconnect() self.PlayConn=nil end end)
+    local sa = E.time
+    local mx = E.maxTime()
+    if E.conn then pcall(function() E.conn:Disconnect() end) E.conn=nil end
+    E.conn = SAP.RS.RenderStepped:Connect(function()
+        if not E.playing then
+            pcall(function() if E.conn then E.conn:Disconnect() E.conn=nil end end)
             return
         end
-        local el = (tick()-st)*self.Speed
-        self.CurrentTime = sa + el
-        if self.CurrentTime >= mx then
-            if self.IsLooping then st=tick() sa=0 self.CurrentTime=0
-            else self.CurrentTime=mx self.IsPlaying=false
-                pcall(function() if self.PlayConn then self.PlayConn:Disconnect() self.PlayConn=nil end end) return
+        local el = (tick()-st)*E.speed
+        E.time = sa+el
+        if E.time>=mx then
+            if E.looping then st=tick() sa=0 E.time=0
+            else E.time=mx E.playing=false
+                pcall(function() if E.conn then E.conn:Disconnect() E.conn=nil end end)
+                return
             end
         end
-        local fd = self:Evaluate(self.CurrentTime)
-        if fd then self:ApplyFrame(fd) end
+        local d = E.eval(E.time)
+        if d then E.apply(d) end
     end)
 end
-function EC:Stop()
-    self.IsPlaying = false
-    if self.PlayConn then pcall(function() self.PlayConn:Disconnect() end) self.PlayConn = nil end
+
+function E.stop()
+    E.playing=false
+    if E.conn then pcall(function() E.conn:Disconnect() end) E.conn=nil end
 end
-function EC:Pause() self.IsPlaying = false end
-function EC:CopyKF()
-    for _, kf in ipairs(self.Keyframes) do
-        if math.abs(kf.time-self.CurrentTime)<0.05 then
-            self.Clipboard = {joints={}}
-            for n,d in pairs(kf.joints) do local dd={} for k,v in pairs(d) do dd[k]=v end self.Clipboard.joints[n]=dd end
+
+function E.pause() E.playing=false end
+
+function E.copyKF()
+    for _,kf in ipairs(E.kfs) do
+        if math.abs(kf.t-E.time)<0.05 then
+            E.clip = {}
+            for k,v in pairs(kf.j) do local vc={} for kk,vv in pairs(v) do vc[kk]=vv end E.clip[k]=vc end
             return true
         end
     end
     return false
 end
-function EC:PasteKF()
-    if not self.Clipboard then return end
-    self:PushUndo()
-    local kf = {time=self.CurrentTime, joints={}}
-    for n,d in pairs(self.Clipboard.joints) do local dd={} for k,v in pairs(d) do dd[k]=v end kf.joints[n]=dd end
-    local nl = {}
-    for _,ek in ipairs(self.Keyframes) do if math.abs(ek.time-self.CurrentTime)>=0.001 then table.insert(nl,ek) end end
-    self.Keyframes = nl
-    table.insert(self.Keyframes, kf)
-    table.sort(self.Keyframes, function(a,b) return a.time<b.time end)
+
+function E.pasteKF()
+    if not E.clip then return end
+    E.pushUndo()
+    local nl={}
+    for _,kf in ipairs(E.kfs) do if math.abs(kf.t-E.time)>=0.001 then table.insert(nl,kf) end end
+    E.kfs=nl
+    local jc={} for k,v in pairs(E.clip) do local vc={} for kk,vv in pairs(v) do vc[kk]=vv end jc[k]=vc end
+    table.insert(E.kfs, {t=E.time, j=jc})
+    table.sort(E.kfs, function(a,b) return a.t<b.t end)
 end
-function EC:ClearAll() self:PushUndo() self.Keyframes = {} end
-function EC:MirrorKF()
-    self:PushUndo()
-    for _, kf in ipairs(self.Keyframes) do
-        if math.abs(kf.time-self.CurrentTime)<0.05 then
-            for _, d in pairs(kf.joints) do
-                if d.CF then pcall(function()
-                    local p=d.CF.Position local rx,ry,rz=d.CF:ToEulerAnglesXYZ()
-                    if self.MirrorAxis=="X" then d.CF=CFrame.new(-p.X,p.Y,p.Z)*CFrame.Angles(-rx,ry,rz)
-                    elseif self.MirrorAxis=="Y" then d.CF=CFrame.new(p.X,-p.Y,p.Z)*CFrame.Angles(rx,-ry,rz)
-                    else d.CF=CFrame.new(p.X,p.Y,-p.Z)*CFrame.Angles(rx,ry,-rz) end
+
+function E.clearAll() E.pushUndo() E.kfs={} end
+
+function E.mirror()
+    E.pushUndo()
+    for _,kf in ipairs(E.kfs) do
+        if math.abs(kf.t-E.time)<0.05 then
+            for _,d in pairs(kf.j) do
+                if d.cf then pcall(function()
+                    local p=d.cf.Position local rx,ry,rz=d.cf:ToEulerAnglesXYZ()
+                    if E.mirrorAxis=="X" then d.cf=CFrame.new(-p.X,p.Y,p.Z)*CFrame.Angles(-rx,ry,rz)
+                    elseif E.mirrorAxis=="Y" then d.cf=CFrame.new(p.X,-p.Y,p.Z)*CFrame.Angles(rx,-ry,rz)
+                    else d.cf=CFrame.new(p.X,p.Y,-p.Z)*CFrame.Angles(rx,ry,-rz) end
                 end) end
-            end
-            break
+            end break
         end
     end
 end
-function EC:ReverseKFs()
-    self:PushUndo()
-    if #self.Keyframes==0 then return end
-    local mx=self:GetMaxTime()
-    for _,kf in ipairs(self.Keyframes) do kf.time=mx-kf.time end
-    table.sort(self.Keyframes, function(a,b) return a.time<b.time end)
+
+function E.reverse()
+    E.pushUndo()
+    if #E.kfs==0 then return end
+    local mx=E.maxTime()
+    for _,kf in ipairs(E.kfs) do kf.t=mx-kf.t end
+    table.sort(E.kfs, function(a,b) return a.t<b.t end)
 end
-function EC:DupKF(src,dst)
-    self:PushUndo()
-    for _,kf in ipairs(self.Keyframes) do
-        if math.abs(kf.time-src)<0.05 then
-            local nk={time=dst,joints={}}
-            for n,d in pairs(kf.joints) do local dd={} for k,v in pairs(d) do dd[k]=v end nk.joints[n]=dd end
-            table.insert(self.Keyframes,nk)
-            table.sort(self.Keyframes,function(a,b) return a.time<b.time end) return
+
+function E.dupKF()
+    for _,kf in ipairs(E.kfs) do
+        if math.abs(kf.t-E.time)<0.05 then
+            E.pushUndo()
+            local jc={} for k,v in pairs(kf.j) do local vc={} for kk,vv in pairs(v) do vc[kk]=vv end jc[k]=vc end
+            table.insert(E.kfs, {t=E.time+0.5, j=jc})
+            table.sort(E.kfs, function(a,b) return a.t<b.t end) return
         end
     end
 end
-function EC:ScaleTime(f) self:PushUndo() for _,kf in ipairs(self.Keyframes) do kf.time=kf.time*f end end
-function EC:AddMarker(t,n) table.insert(self.Markers,{time=t,name=n or "M",color=Color3.fromRGB(255,200,0)}) end
-function EC:ResetPose()
-    for _,j in ipairs(self.AllJoints) do
-        if self:JValid(j) then pcall(function()
-            if j.Type=="Motor6D" then j.Inst.C0=j.OC0
-            elseif j.Type=="Part" then j.Inst.CFrame=j.OCF
-            elseif j.Type=="GUI" then j.Inst.Position=j.OPos j.Inst.Size=j.OSize j.Inst.Rotation=j.ORot end
+
+function E.resetPose()
+    for _,j in ipairs(E.joints) do
+        if E.valid(j) then pcall(function()
+            if j.t=="m6d" then j.inst.C0=j.o
+            elseif j.t=="part" then j.inst.CFrame=j.o
+            elseif j.t=="gui" then j.inst.Position=j.oP j.inst.Size=j.oS j.inst.Rotation=j.oR end
         end) end
     end
 end
 
-Eng = EC.new()
-print("P2 OK")
+-- TWEEN MODE (sem keyframes)
+E.tweenMode = false
+E.tweenDuration = 1
+E.tweenStyle = "Quad"
+E.tweenDir = "InOut"
+E.tweenLoop = false
+E.tweenReverse = false
+E.tweenStartSnap = nil
+E.tweenEndSnap = nil
 
---[[
-    Snow Hub Studios - PARTE 3/7
-    Serialize, Export & Loading Screen
-]]
-
-function EC:Serialize()
-    local data = {KF={}, Spd=self.Speed, AT=self.AnimType, IM=self.InterpMode, Loop=self.IsLooping, FPS=self.FPS, VM=self.ViewMode}
-    for i,kf in ipairs(self.Keyframes) do
-        local kd = {t=kf.time, j={}}
-        for jn,jd in pairs(kf.joints) do
-            local d = {ES=jd.ES, ED=jd.ED}
-            if jd.CF then pcall(function() d.CF={jd.CF:GetComponents()} end) end
-            if jd.SZ and typeof(jd.SZ)=="Vector3" then pcall(function() d.SZ={jd.SZ.X,jd.SZ.Y,jd.SZ.Z} d.ST="V3" end) end
-            if jd.Sz then pcall(function() d.Sz={jd.Sz.X.Scale,jd.Sz.X.Offset,jd.Sz.Y.Scale,jd.Sz.Y.Offset} end) end
-            if jd.Pos then pcall(function() d.Pos={jd.Pos.X.Scale,jd.Pos.X.Offset,jd.Pos.Y.Scale,jd.Pos.Y.Offset} end) end
-            if jd.TR then d.TR=jd.TR end
-            if jd.Rot then d.Rot=jd.Rot end
-            if jd.Tr then d.Tr=jd.Tr end
-            if jd.CL then pcall(function() d.CL={jd.CL.R,jd.CL.G,jd.CL.B} end) end
-            if jd.Rate then d.Rate=jd.Rate end
-            if jd.Bright then d.Bright=jd.Bright end
-            if jd.Range then d.Range=jd.Range end
-            kd.j[jn] = d
-        end
-        data.KF[i] = kd
-    end
-    return data
+function E.tweenCapStart()
+    E.tweenStartSnap = E.snapshot()
 end
 
-function EC:Deserialize(data)
-    if not data then return end
-    self.Speed=data.Spd or 1 self.AnimType=data.AT or "Core" self.InterpMode=data.IM or "Linear"
-    self.IsLooping=data.Loop or false self.FPS=data.FPS or 60 self.ViewMode=data.VM or "Global"
-    self.Keyframes = {}
-    if not data.KF then return end
-    for i,kd in ipairs(data.KF) do
-        local kf = {time=kd.t, joints={}}
-        if kd.j then
-            for jn,d in pairs(kd.j) do
-                local jd = {ES=d.ES or "Linear", ED=d.ED or "InOut"}
-                if d.CF then pcall(function() jd.CF=CFrame.new(unpack(d.CF)) end) end
-                if d.SZ and d.ST=="V3" then pcall(function() jd.SZ=Vector3.new(unpack(d.SZ)) end) end
-                if d.Sz then pcall(function() jd.Sz=UDim2.new(unpack(d.Sz)) end) end
-                if d.Pos then pcall(function() jd.Pos=UDim2.new(unpack(d.Pos)) end) end
-                if d.TR then jd.TR=d.TR end if d.Rot then jd.Rot=d.Rot end if d.Tr then jd.Tr=d.Tr end
-                if d.CL then pcall(function() jd.CL=Color3.new(unpack(d.CL)) end) end
-                if d.Rate then jd.Rate=d.Rate end if d.Bright then jd.Bright=d.Bright end if d.Range then jd.Range=d.Range end
-                kf.joints[jn] = jd
+function E.tweenCapEnd()
+    E.tweenEndSnap = E.snapshot()
+end
+
+function E.tweenPlay()
+    if not E.tweenStartSnap or not E.tweenEndSnap then return end
+    if E.conn then pcall(function() E.conn:Disconnect() end) E.conn=nil end
+    E.playing = true
+    local st = tick()
+    local styleMap = {
+        Linear=Enum.EasingStyle.Linear, Quad=Enum.EasingStyle.Quad,
+        Cubic=Enum.EasingStyle.Cubic, Sine=Enum.EasingStyle.Sine,
+        Bounce=Enum.EasingStyle.Bounce, Elastic=Enum.EasingStyle.Elastic,
+        Back=Enum.EasingStyle.Back, Expo=Enum.EasingStyle.Exponential,
+    }
+    local dirMap = {In=Enum.EasingDirection.In, Out=Enum.EasingDirection.Out, InOut=Enum.EasingDirection.InOut}
+    local dur = E.tweenDuration
+
+    E.conn = SAP.RS.RenderStepped:Connect(function()
+        if not E.playing then
+            pcall(function() if E.conn then E.conn:Disconnect() E.conn=nil end end)
+            return
+        end
+        local elapsed = tick()-st
+        local raw = elapsed/dur
+        if E.tweenReverse then
+            local cycle = elapsed/(dur*2)
+            local phase = (elapsed%(dur*2))/dur
+            if phase>1 then raw=2-phase else raw=phase end
+        end
+        if not E.tweenReverse and raw>=1 then
+            if E.tweenLoop then st=tick() raw=0
+            else raw=1 E.playing=false
+                pcall(function() if E.conn then E.conn:Disconnect() E.conn=nil end end)
             end
         end
-        self.Keyframes[i] = kf
-    end
+        if E.tweenReverse and not E.tweenLoop and elapsed>=dur*2 then
+            E.playing=false
+            pcall(function() if E.conn then E.conn:Disconnect() E.conn=nil end end)
+            raw=0
+        end
+        if E.tweenReverse and E.tweenLoop and elapsed>=dur*2 then
+            st=tick()
+        end
+        raw = math.clamp(raw,0,1)
+        local ea = E.ease(raw, E.tweenStyle, E.tweenDir)
+
+        local result = {}
+        local ss,se = E.tweenStartSnap, E.tweenEndSnap
+        local all = {}
+        for k in pairs(ss) do all[k]=true end
+        for k in pairs(se) do all[k]=true end
+        for k in pairs(all) do
+            local a,b = ss[k],se[k]
+            if a and not b then result[k]=a
+            elseif b and not a then result[k]=b
+            elseif a and b then
+                local r = {}
+                if a.cf and b.cf then r.cf=E.lerpCF(a.cf,b.cf,ea) end
+                if a.sz and b.sz then
+                    if typeof(a.sz)=="Vector3" then r.sz=E.lerpV3(a.sz,b.sz,ea)
+                    elseif typeof(a.sz)=="UDim2" then r.sz=E.lerpU2(a.sz,b.sz,ea) end
+                end
+                if a.tr~=nil and b.tr~=nil then r.tr=E.lerpN(a.tr,b.tr,ea) end
+                if a.cl and b.cl then r.cl=E.lerpC3(a.cl,b.cl,ea) end
+                if a.pos and b.pos then r.pos=E.lerpU2(a.pos,b.pos,ea) end
+                if a.rot~=nil and b.rot~=nil then r.rot=E.lerpN(a.rot,b.rot,ea) end
+                result[k]=r
+            end
+        end
+        E.apply(result)
+    end)
 end
 
-function EC:GenExportScript()
-    local s = "-- Snow Animator Pro Export\nlocal RS=game:GetService('RunService')\nlocal D={Spd="..self.Speed..",Loop="..tostring(self.IsLooping)..",KF={\n"
-    for _,kf in ipairs(self.Keyframes) do
-        s=s.."{t="..kf.time..",j={\n"
-        for jn,d in pairs(kf.joints) do
+function E.genScript()
+    local s = "-- Snow Animator Pro Export\nlocal RS=game:GetService('RunService')\nlocal D={s="..E.speed..",l="..tostring(E.looping)..",k={\n"
+    for _,kf in ipairs(E.kfs) do
+        s=s.."{t="..kf.t..",j={\n"
+        for jn,d in pairs(kf.j) do
             s=s..'["'..jn..'"]={'
-            if d.CF then pcall(function() local c={d.CF:GetComponents()} s=s.."CF=CFrame.new("..table.concat(c,",")..")," end) end
-            if d.TR then s=s.."TR="..d.TR.."," end
-            s=s..'ES="'..(d.ES or "Linear")..'",ED="'..(d.ED or "InOut")..'"'
+            if d.cf then pcall(function() local c={d.cf:GetComponents()} s=s.."cf=CFrame.new("..table.concat(c,",")..")," end) end
             s=s.."},\n"
         end
         s=s.."}},\n"
     end
-    s=s.."}}\nlocal tgt=script.Parent\nlocal js={}\nfor _,d in ipairs(tgt:GetDescendants()) do if d:IsA('Motor6D') then js[d.Name]=d end end\n"
-    s=s.."local st=tick() local mx=0\nfor _,k in ipairs(D.KF) do if k.t>mx then mx=k.t end end\n"
-    s=s.."local cn cn=RS.Heartbeat:Connect(function()\nlocal el=(tick()-st)*D.Spd\nif el>mx then if D.Loop then st=tick() el=0 else cn:Disconnect() return end end\n"
-    s=s.."local pv,nx for _,k in ipairs(D.KF) do if k.t<=el then pv=k end if k.t>=el and not nx then nx=k end end\n"
-    s=s.."if not pv then pv=D.KF[1] end if not nx then nx=D.KF[#D.KF] end\n"
-    s=s.."if pv and nx and pv~=nx then local a=math.clamp((el-pv.t)/(nx.t-pv.t),0,1)\n"
-    s=s.."for jn,pd in pairs(pv.j) do local nd=nx.j[jn] if nd and js[jn] then if pd.CF and nd.CF then js[jn].C0=pd.CF:Lerp(nd.CF,a) end end end end end)\n"
+    s=s.."}}\nlocal t=script.Parent\nlocal js={}\nfor _,d in ipairs(t:GetDescendants()) do if d:IsA('Motor6D') then js[d.Name]=d end end\n"
+    s=s.."local st,mx=tick(),0\nfor _,k in ipairs(D.k) do if k.t>mx then mx=k.t end end\n"
+    s=s.."RS.Heartbeat:Connect(function()\nlocal e=(tick()-st)*D.s\nif e>mx then if D.l then st=tick() else return end end\n"
+    s=s.."local p,n\nfor _,k in ipairs(D.k) do if k.t<=e then p=k end if k.t>=e and not n then n=k end end\n"
+    s=s.."if p and n and p~=n then local a=math.clamp((e-p.t)/(n.t-p.t),0,1)\n"
+    s=s.."for j,pd in pairs(p.j) do local nd=n.j[j] if nd and js[j] and pd.cf and nd.cf then js[j].C0=pd.cf:Lerp(nd.cf,a) end end end end)\n"
     return s
 end
 
-function EC:ExportToRS(expType)
-    self.ExportCount = self.ExportCount + 1
-    local fn = "SNA_"..string.format("%03d", self.ExportCount)
+function E.exportRS(typ)
+    local cnt = #SAP.RepStorage:GetChildren()
+    local fn = "SNA_"..string.format("%03d",cnt+1)
     pcall(function()
-        local mf = Instance.new("Folder") mf.Name=fn mf.Parent=ReplicatedStorage
-        local at=Instance.new("StringValue") at.Name="AnimType" at.Value=self.AnimType at.Parent=mf
-        local sv=Instance.new("NumberValue") sv.Name="Speed" sv.Value=self.Speed sv.Parent=mf
-        local lv=Instance.new("BoolValue") lv.Name="Loop" lv.Value=self.IsLooping lv.Parent=mf
-        local et=Instance.new("StringValue") et.Name="ExportType" et.Value=expType or "NPC" et.Parent=mf
-        local kff=Instance.new("Folder") kff.Name="KeyFrames" kff.Parent=mf
-        for i,kf in ipairs(self.Keyframes) do
-            local ki=Instance.new("Folder") ki.Name="KF_"..string.format("%04d",i) ki.Parent=kff
-            local tv=Instance.new("NumberValue") tv.Name="Time" tv.Value=kf.time tv.Parent=ki
-            local jf=Instance.new("Folder") jf.Name="Joints" jf.Parent=ki
-            for jn,d in pairs(kf.joints) do
-                local jfi=Instance.new("Folder") jfi.Name=jn jfi.Parent=jf
-                if d.CF then pcall(function() local cv=Instance.new("CFrameValue") cv.Name="CF" cv.Value=d.CF cv.Parent=jfi end) end
+        local f=Instance.new("Folder") f.Name=fn f.Parent=SAP.RepStorage
+        local ms=Instance.new("ModuleScript") ms.Name="Playback" ms.Source=E.genScript() ms.Parent=f
+        local kff=Instance.new("Folder") kff.Name="KeyFrames" kff.Parent=f
+        for i,kf in ipairs(E.kfs) do
+            local ki=Instance.new("Folder") ki.Name="KF"..i ki.Parent=kff
+            local tv=Instance.new("NumberValue") tv.Name="Time" tv.Value=kf.t tv.Parent=ki
+            for jn,d in pairs(kf.j) do
+                if d.cf then pcall(function()
+                    local cv=Instance.new("CFrameValue") cv.Name=jn cv.Value=d.cf cv.Parent=ki
+                end) end
             end
         end
-        local ps=Instance.new("ModuleScript") ps.Name="Playback" ps.Source=self:GenExportScript() ps.Parent=mf
     end)
     return fn
 end
 
--- LOADING SCREEN
-SG = nil
-pcall(function() SG = UI.Create("ScreenGui", {Name="SnowHubStudios", ZIndexBehavior=Enum.ZIndexBehavior.Sibling, ResetOnSpawn=false, Parent=CoreGui}) end)
-if not SG then
-    SG = UI.Create("ScreenGui", {Name="SnowHubStudios", ResetOnSpawn=false, Parent=LocalPlayer:WaitForChild("PlayerGui")})
+function E.serialize()
+    local d = {k={},s=E.speed,l=E.looping,at=E.animType,im=E.interpMode}
+    for i,kf in ipairs(E.kfs) do
+        local jd={}
+        for jn,v in pairs(kf.j) do
+            local vv={}
+            if v.cf then pcall(function() vv.cf={v.cf:GetComponents()} end) end
+            if v.sz and typeof(v.sz)=="Vector3" then vv.sz={v.sz.X,v.sz.Y,v.sz.Z} end
+            if v.tr~=nil then vv.tr=v.tr end
+            if v.cl then vv.cl={v.cl.R,v.cl.G,v.cl.B} end
+            if v.pos then pcall(function() vv.pos={v.pos.X.Scale,v.pos.X.Offset,v.pos.Y.Scale,v.pos.Y.Offset} end) end
+            if v.rot then vv.rot=v.rot end
+            vv.es=v.es vv.ed=v.ed
+            jd[jn]=vv
+        end
+        d.k[i]={t=kf.t,j=jd}
+    end
+    return d
 end
 
-LoadF = UI.Create("Frame", {Name="LoadScreen", Size=UDim2.new(1,0,1,0), BackgroundColor3=Color3.fromRGB(8,10,18), BorderSizePixel=0, Parent=SG})
-snowC = UI.Create("Frame", {Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, Parent=LoadF})
-flakes = {}
-for i=1,25 do
-    local fl = UI.Create("TextLabel", {Size=UDim2.new(0,math.random(8,16),0,math.random(8,16)), Position=UDim2.new(math.random(0,100)/100,0,-0.05,0), BackgroundTransparency=1, Text="❄", TextColor3=Color3.fromRGB(180,200,255), TextTransparency=math.random(30,70)/100, TextSize=math.random(10,20), Font=Enum.Font.SourceSans, Parent=snowC})
-    if fl then table.insert(flakes, {o=fl, sp=math.random(20,60)/1000, sw=math.random(-30,30)/100, sx=math.random(0,100)/100}) end
+function E.deserialize(d)
+    if not d or not d.k then return end
+    E.speed=d.s or 1 E.looping=d.l or false E.animType=d.at or "Action1" E.interpMode=d.im or "Linear"
+    E.kfs={}
+    for i,kd in ipairs(d.k) do
+        local jd={}
+        for jn,v in pairs(kd.j) do
+            local vv={es=v.es,ed=v.ed}
+            if v.cf then pcall(function() vv.cf=CFrame.new(unpack(v.cf)) end) end
+            if v.sz then pcall(function() vv.sz=Vector3.new(unpack(v.sz)) end) end
+            if v.tr~=nil then vv.tr=v.tr end
+            if v.cl then pcall(function() vv.cl=Color3.new(unpack(v.cl)) end) end
+            if v.pos then pcall(function() vv.pos=UDim2.new(unpack(v.pos)) end) end
+            if v.rot then vv.rot=v.rot end
+            jd[jn]=vv
+        end
+        E.kfs[i]={t=kd.t,j=jd}
+    end
 end
-spawn(function()
-    while LoadF and LoadF.Parent and LoadF.Visible do
-        for _,s in ipairs(flakes) do pcall(function()
-            if s.o and s.o.Parent then
-                local ny=s.o.Position.Y.Scale+s.sp
-                local nx=s.sx+math.sin(tick()*s.sw)*0.05
-                if ny>1.1 then ny=-0.05 s.sx=math.random(0,100)/100 end
-                s.o.Position=UDim2.new(nx,0,ny,0)
+
+-- SAVE
+E.saves = {}
+function E.loadSaves()
+    pcall(function()
+        local f=SAP.RepStorage:FindFirstChild("SnowAnimSaves")
+        if f then
+            for i=1,10 do
+                local sf=f:FindFirstChild("S"..i)
+                if sf then
+                    local n=sf:FindFirstChild("N")
+                    local d=sf:FindFirstChild("D")
+                    if n and d and d.Value~="" then
+                        E.saves[i]={name=n.Value, data=SAP.HTTP:JSONDecode(d.Value)}
+                    end
+                end
             end
-        end) end
-        RunService.RenderStepped:Wait()
-    end
-end)
-
-LC = UI.Create("Frame", {Size=UDim2.new(0,420,0,320), Position=UDim2.new(0.5,-210,0.5,-160), BackgroundTransparency=1, Parent=LoadF})
-UI.Create("TextLabel", {Size=UDim2.new(1,0,0,60), Position=UDim2.new(0,0,0.05,0), BackgroundTransparency=1, Text="Snow Hub Studios❄️", TextColor3=Color3.fromRGB(220,235,255), TextSize=36, Font=Enum.Font.GothamBold, Parent=LC})
-UI.Create("TextLabel", {Size=UDim2.new(1,0,0,22), Position=UDim2.new(0,0,0.28,0), BackgroundTransparency=1, Text="Professional Animation Suite", TextColor3=T.TD, TextSize=13, Font=Enum.Font.Gotham, Parent=LC})
-lbBG = UI.Create("Frame", {Size=UDim2.new(0.6,0,0,5), Position=UDim2.new(0.2,0,0.72,0), BackgroundColor3=T.SF, Parent=LC})
-UI.Corner(lbBG, 3)
-lbFill = UI.Create("Frame", {Size=UDim2.new(0,0,1,0), BackgroundColor3=T.PR, Parent=lbBG})
-UI.Corner(lbFill, 3)
-lbTxt = UI.Create("TextLabel", {Size=UDim2.new(1,0,0,18), Position=UDim2.new(0,0,0.82,0), BackgroundTransparency=1, Text="Loading...", TextColor3=T.TD, TextSize=11, Font=Enum.Font.Gotham, Parent=LC})
-
-spawn(function()
-    local loadSteps = {{0.15,"Loading Core..."},{0.3,"Engine Ready..."},{0.5,"Timeline..."},{0.7,"Tools..."},{0.9,"Save System..."},{1.0,"Ready! ❄️"}}
-    for _,st in ipairs(loadSteps) do
-        pcall(function() TweenService:Create(lbFill, TweenInfo.new(0.2), {Size=UDim2.new(st[1],0,1,0)}):Play() lbTxt.Text=st[2] end)
-        wait(0.25)
-    end
-    wait(0.3)
-    pcall(function()
-        TweenService:Create(LoadF, TweenInfo.new(0.5), {BackgroundTransparency=1}):Play()
-        for _,ch in ipairs(LC:GetChildren()) do
-            if ch:IsA("TextLabel") then TweenService:Create(ch,TweenInfo.new(0.3),{TextTransparency=1}):Play()
-            elseif ch:IsA("Frame") then TweenService:Create(ch,TweenInfo.new(0.3),{BackgroundTransparency=1}):Play() end
         end
     end)
-    wait(0.5)
-    pcall(function() LoadF.Visible = false end)
+end
+function E.saveSlot(i,name)
     pcall(function()
-        if SG:FindFirstChild("Hub") then
-            SG.Hub.Visible = true
-            TweenService:Create(SG.Hub, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size=UDim2.new(0,480,0,600)}):Play()
-        end
+        local f=SAP.RepStorage:FindFirstChild("SnowAnimSaves")
+        if not f then f=Instance.new("Folder") f.Name="SnowAnimSaves" f.Parent=SAP.RepStorage end
+        local sf=f:FindFirstChild("S"..i)
+        if not sf then sf=Instance.new("Folder") sf.Name="S"..i sf.Parent=f end
+        local n=sf:FindFirstChild("N") if not n then n=Instance.new("StringValue") n.Name="N" n.Parent=sf end n.Value=name
+        local d=sf:FindFirstChild("D") if not d then d=Instance.new("StringValue") d.Name="D" d.Parent=sf end d.Value=SAP.HTTP:JSONEncode(E.serialize())
+        E.saves[i]={name=name, data=E.serialize()}
+    end)
+end
+function E.deleteSlot(i)
+    pcall(function()
+        local f=SAP.RepStorage:FindFirstChild("SnowAnimSaves")
+        if f then local sf=f:FindFirstChild("S"..i) if sf then sf:Destroy() end end
+        E.saves[i]=nil
+    end)
+end
+function E.loadSlot(i)
+    if E.saves[i] and E.saves[i].data then E.deserialize(E.saves[i].data) end
+end
+E.loadSaves()
+
+print("[SAP] Part 2 OK - Engine ready")
+
+--[[
+    Snow Animator Pro v3 - PARTE 3/7
+    INTERFACE - Main frame, header, toolbar
+]]
+local SAP = _G.SAP
+local E = SAP.E
+local C = SAP.C
+local New = SAP.New
+
+local AF = New("Frame", {Name="AnimFrame", Size=UDim2.new(1,0,0,340), Position=UDim2.new(0,0,1,-340), BackgroundColor3=C.bg, BorderSizePixel=0, Parent=SAP.SG})
+SAP.AF = AF
+SAP.Stroke(AF, C.bg3)
+
+-- HEADER
+local hdr = New("Frame", {Size=UDim2.new(1,0,0,30), BackgroundColor3=Color3.fromRGB(14,16,24), BorderSizePixel=0, Parent=AF})
+New("TextLabel", {Size=UDim2.new(0,190,1,0), Position=UDim2.new(0,6,0,0), BackgroundTransparency=1, Text="❄️ Snow Animator Pro", TextColor3=C.white, TextSize=13, Font=Enum.Font.GothamBold, TextXAlignment=Enum.TextXAlignment.Left, Parent=hdr})
+
+-- View mode
+SAP.vmBtn = New("TextButton", {Size=UDim2.new(0,72,0,20), Position=UDim2.new(0,200,0,5), BackgroundColor3=C.green, Text="Global🌎", TextColor3=C.white, TextSize=9, Font=Enum.Font.GothamBold, Parent=hdr})
+SAP.Corner(SAP.vmBtn,5)
+SAP.vmBtn.MouseButton1Click:Connect(function()
+    if E.viewMode=="Global" then E.viewMode="Local" SAP.vmBtn.Text="Local📍" SAP.vmBtn.BackgroundColor3=C.orange
+    else E.viewMode="Global" SAP.vmBtn.Text="Global🌎" SAP.vmBtn.BackgroundColor3=C.green end
+end)
+
+-- Mode toggle KF/Tween
+SAP.modeBtn = New("TextButton", {Size=UDim2.new(0,72,0,20), Position=UDim2.new(0,278,0,5), BackgroundColor3=C.blue, Text="KF Mode", TextColor3=C.white, TextSize=9, Font=Enum.Font.GothamBold, Parent=hdr})
+SAP.Corner(SAP.modeBtn,5)
+SAP.modeBtn.MouseButton1Click:Connect(function()
+    E.tweenMode = not E.tweenMode
+    if E.tweenMode then SAP.modeBtn.Text="Tween Mode" SAP.modeBtn.BackgroundColor3=C.purple
+    else SAP.modeBtn.Text="KF Mode" SAP.modeBtn.BackgroundColor3=C.blue end
+    pcall(function()
+        if SAP.tweenPanel then SAP.tweenPanel.Visible=E.tweenMode end
+        if SAP.kfPanel then SAP.kfPanel.Visible=not E.tweenMode end
     end)
 end)
-print("P3 OK")
 
---[[
-    Snow Hub Studios - PARTE 4/7
-    Hub Principal
-]]
+-- FPS
+SAP.fpsL = New("TextLabel", {Size=UDim2.new(0,44,0,20), Position=UDim2.new(0,356,0,5), BackgroundColor3=C.bg2, Text="60", TextColor3=C.cyan, TextSize=9, Font=Enum.Font.Code, Parent=hdr})
+SAP.Corner(SAP.fpsL,4)
 
-Hub = UI.Create("Frame", {Name="Hub", Size=UDim2.new(0,0,0,0), Position=UDim2.new(0.5,-240,0.5,-300), BackgroundColor3=T.BG, BorderSizePixel=0, Visible=false, Parent=SG})
-UI.Corner(Hub, 14)
-UI.Stroke(Hub, T.PR, 2)
-UI.Create("TextLabel", {Size=UDim2.new(1,0,0,42), BackgroundTransparency=1, Text="❄️ Snow Hub Studios ❄️", TextColor3=T.SN, TextSize=22, Font=Enum.Font.GothamBold, Parent=Hub})
-clHub = UI.Create("TextButton", {Size=UDim2.new(0,26,0,26), Position=UDim2.new(1,-34,0,8), BackgroundColor3=T.DN, Text="✕", TextColor3=Color3.new(1,1,1), TextSize=13, Font=Enum.Font.GothamBold, Parent=Hub})
-UI.Corner(clHub, 6)
-clHub.MouseButton1Click:Connect(function()
-    pcall(function() TweenService:Create(Hub,TweenInfo.new(0.2,Enum.EasingStyle.Back,Enum.EasingDirection.In),{Size=UDim2.new(0,0,0,0),Position=UDim2.new(0.5,0,0.5,0)}):Play() end)
-    wait(0.25) pcall(function() Hub.Visible=false end)
-end)
-UI.Create("Frame", {Size=UDim2.new(0.9,0,0,1), Position=UDim2.new(0.05,0,0,48), BackgroundColor3=T.SL, BorderSizePixel=0, Parent=Hub})
+-- Close
+local clB = New("TextButton", {Size=UDim2.new(0,22,0,20), Position=UDim2.new(1,-28,0,5), BackgroundColor3=C.red, Text="✕", TextColor3=C.white, TextSize=10, Font=Enum.Font.GothamBold, Parent=hdr})
+SAP.Corner(clB,4)
+clB.MouseButton1Click:Connect(function() AF.Visible=false end)
 
-BC = UI.Create("ScrollingFrame", {Name="BC", Size=UDim2.new(0.92,0,0,500), Position=UDim2.new(0.04,0,0,55), BackgroundTransparency=1, ScrollBarThickness=3, ScrollBarImageColor3=T.PR, CanvasSize=UDim2.new(0,0,0,660), Parent=Hub})
-pcall(function() BC.ElasticBehavior=Enum.ElasticBehavior.Never end)
-UI.Create("UIListLayout", {SortOrder=Enum.SortOrder.LayoutOrder, Padding=UDim.new(0,8), Parent=BC})
-UI.Pad(BC, 4,4,4,4)
-UI.Create("TextLabel", {Size=UDim2.new(1,0,0,20), BackgroundTransparency=1, Text="🌟 Main Scripts", TextColor3=T.AC, TextSize=14, Font=Enum.Font.GothamBold, TextXAlignment=Enum.TextXAlignment.Left, LayoutOrder=1, Parent=BC})
-
-function HubBtn(nm, desc, ic, ord, cb)
-    local b = UI.Create("TextButton", {Size=UDim2.new(1,-8,0,60), BackgroundColor3=T.SF, Text="", LayoutOrder=ord, Parent=BC})
-    UI.Corner(b, 10) UI.Stroke(b, T.SL, 1)
-    local il = UI.Create("TextLabel", {Size=UDim2.new(0,40,0,40), Position=UDim2.new(0,8,0.5,-20), BackgroundColor3=T.PD, Text=ic, TextSize=20, Font=Enum.Font.SourceSans, TextColor3=Color3.new(1,1,1), Parent=b})
-    UI.Corner(il, 8)
-    UI.Create("TextLabel", {Size=UDim2.new(1,-60,0,20), Position=UDim2.new(0,56,0,8), BackgroundTransparency=1, Text=nm, TextColor3=T.TX, TextSize=14, Font=Enum.Font.GothamBold, TextXAlignment=Enum.TextXAlignment.Left, Parent=b})
-    UI.Create("TextLabel", {Size=UDim2.new(1,-60,0,16), Position=UDim2.new(0,56,0,30), BackgroundTransparency=1, Text=desc, TextColor3=T.TD, TextSize=10, Font=Enum.Font.Gotham, TextXAlignment=Enum.TextXAlignment.Left, TextTruncate=Enum.TextTruncate.AtEnd, Parent=b})
-    b.MouseEnter:Connect(function() pcall(function() TweenService:Create(b,TweenInfo.new(0.12),{BackgroundColor3=T.SL}):Play() end) end)
-    b.MouseLeave:Connect(function() pcall(function() TweenService:Create(b,TweenInfo.new(0.12),{BackgroundColor3=T.SF}):Play() end) end)
-    b.MouseButton1Click:Connect(cb)
-    return b
-end
-
-HubBtn("Snow Animator Pro❄️","Blender-level Animator • 60FPS","🎬",2,function()
-    pcall(function() Hub.Visible=false end)
-    pcall(function() if SG:FindFirstChild("Anim") then SG.Anim.Visible=true end end)
-end)
-HubBtn("Snow Terrain Editor🏔️","Advanced Terrain Tools","🌍",3,function()
-    pcall(function() Hub.Visible=false end)
-    pcall(function() loadstring(game:HttpGet("https://pastebin.com/raw/mXCzAaSP",true))() end)
+local mnB = New("TextButton", {Size=UDim2.new(0,22,0,20), Position=UDim2.new(1,-54,0,5), BackgroundColor3=C.orange, Text="—", TextColor3=C.white, TextSize=10, Font=Enum.Font.GothamBold, Parent=hdr})
+SAP.Corner(mnB,4)
+local mini=false
+mnB.MouseButton1Click:Connect(function()
+    mini=not mini
+    SAP.TS:Create(AF, TweenInfo.new(0.2), {Size=UDim2.new(1,0,0,mini and 30 or 340)}):Play()
 end)
 
-UI.Create("Frame", {Size=UDim2.new(0.9,0,0,1), BackgroundColor3=T.SL, BorderSizePixel=0, LayoutOrder=4, Parent=BC})
-UI.Create("TextLabel", {Size=UDim2.new(1,0,0,20), BackgroundTransparency=1, Text="📝 Custom Slots", TextColor3=T.WN, TextSize=13, Font=Enum.Font.GothamBold, TextXAlignment=Enum.TextXAlignment.Left, LayoutOrder=5, Parent=BC})
-
-for i=1,6 do
-    local sf = UI.Create("Frame", {Size=UDim2.new(1,-8,0,44), BackgroundColor3=T.SF, LayoutOrder=5+i, Parent=BC})
-    UI.Corner(sf, 7) UI.Stroke(sf, T.SL, 1)
-    UI.Create("TextLabel", {Size=UDim2.new(0,40,0,14), Position=UDim2.new(0,6,0,3), BackgroundTransparency=1, Text="📦 Slot "..i, TextColor3=T.TX, TextSize=10, Font=Enum.Font.GothamBold, TextXAlignment=Enum.TextXAlignment.Left, Parent=sf})
-    local lb = UI.Create("TextBox", {Size=UDim2.new(0.55,0,0,20), Position=UDim2.new(0,6,0,20), BackgroundColor3=Color3.fromRGB(15,17,25), Text="", PlaceholderText="loadstring...", TextColor3=T.TD, TextSize=8, Font=Enum.Font.Code, TextXAlignment=Enum.TextXAlignment.Left, ClearTextOnFocus=false, Parent=sf})
-    UI.Corner(lb, 4)
-    local rb = UI.Create("TextButton", {Size=UDim2.new(0,50,0,28), Position=UDim2.new(1,-56,0.5,-14), BackgroundColor3=T.OK, Text="▶Run", TextColor3=Color3.new(1,1,1), TextSize=10, Font=Enum.Font.GothamBold, Parent=sf})
-    UI.Corner(rb, 6)
-    rb.MouseButton1Click:Connect(function() local c=lb.Text if c and c~="" then pcall(function() loadstring(c)() end) end end)
-end
-
--- Drag Hub
-hd=false hdi=nil hds=nil hsp=nil
-Hub.InputBegan:Connect(function(inp)
-    if inp.UserInputType==Enum.UserInputType.MouseButton1 or inp.UserInputType==Enum.UserInputType.Touch then
-        hd=true hds=inp.Position hsp=Hub.Position
-        inp.Changed:Connect(function() if inp.UserInputState==Enum.UserInputState.End then hd=false end end)
+-- DRAG
+local dg,ds,dp=false,nil,nil
+hdr.InputBegan:Connect(function(i)
+    if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+        dg=true ds=i.Position dp=AF.Position
+        i.Changed:Connect(function() if i.UserInputState==Enum.UserInputState.End then dg=false end end)
     end
 end)
-Hub.InputChanged:Connect(function(inp) if inp.UserInputType==Enum.UserInputType.MouseMovement or inp.UserInputType==Enum.UserInputType.Touch then hdi=inp end end)
-UserInputService.InputChanged:Connect(function(inp) if inp==hdi and hd then local d=inp.Position-hds Hub.Position=UDim2.new(hsp.X.Scale,hsp.X.Offset+d.X,hsp.Y.Scale,hsp.Y.Offset+d.Y) end end)
-print("P4 OK")
-
---[[
-    Snow Hub Studios - PARTE 5/7
-    Animator Interface & Toolbar
-]]
-
-AF = UI.Create("Frame", {Name="Anim", Size=UDim2.new(1,0,0,350), Position=UDim2.new(0,0,1,-350), BackgroundColor3=T.BG, BorderSizePixel=0, Visible=false, Parent=SG})
-UI.Stroke(AF, T.SL, 1)
-
-AH = UI.Create("Frame", {Size=UDim2.new(1,0,0,32), BackgroundColor3=Color3.fromRGB(18,20,30), BorderSizePixel=0, Parent=AF})
-UI.Create("TextLabel", {Size=UDim2.new(0,200,1,0), Position=UDim2.new(0,8,0,0), BackgroundTransparency=1, Text="❄️ Snow Animator Pro", TextColor3=T.SN, TextSize=13, Font=Enum.Font.GothamBold, TextXAlignment=Enum.TextXAlignment.Left, Parent=AH})
-
-tbx = 220
-function TopBtn(txt)
-    local b = UI.Create("TextButton", {Size=UDim2.new(0,62,0,20), Position=UDim2.new(0,tbx,0,6), BackgroundColor3=T.SF, Text=txt, TextColor3=T.TX, TextSize=10, Font=Enum.Font.GothamBold, Parent=AH})
-    UI.Corner(b, 5) tbx=tbx+68
-    b.MouseEnter:Connect(function() pcall(function() TweenService:Create(b,TweenInfo.new(0.1),{BackgroundColor3=T.PR}):Play() end) end)
-    b.MouseLeave:Connect(function() pcall(function() TweenService:Create(b,TweenInfo.new(0.1),{BackgroundColor3=T.SF}):Play() end) end)
-    return b
-end
-
-editBtn = TopBtn("📝Edit")
-settBtn = TopBtn("⚙️Set")
-vmBtn = UI.Create("TextButton", {Size=UDim2.new(0,76,0,20), Position=UDim2.new(0,tbx,0,6), BackgroundColor3=T.OK, Text="Global🌎", TextColor3=Color3.new(1,1,1), TextSize=10, Font=Enum.Font.GothamBold, Parent=AH})
-UI.Corner(vmBtn, 5) tbx=tbx+82
-vmBtn.MouseButton1Click:Connect(function()
-    if Eng.ViewMode=="Global" then Eng.ViewMode="Local" vmBtn.Text="Local📍" vmBtn.BackgroundColor3=T.WN
-    else Eng.ViewMode="Global" vmBtn.Text="Global🌎" vmBtn.BackgroundColor3=T.OK end
+SAP.UIS.InputChanged:Connect(function(i)
+    if dg and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
+        pcall(function() local d=i.Position-ds AF.Position=UDim2.new(dp.X.Scale,dp.X.Offset+d.X,dp.Y.Scale,dp.Y.Offset+d.Y) end)
+    end
 end)
-fpsL = UI.Create("TextLabel", {Size=UDim2.new(0,48,0,20), Position=UDim2.new(0,tbx,0,6), BackgroundColor3=T.SF, Text="60FPS", TextColor3=T.AC, TextSize=9, Font=Enum.Font.Code, Parent=AH})
-UI.Corner(fpsL, 5)
-clA = UI.Create("TextButton", {Size=UDim2.new(0,24,0,20), Position=UDim2.new(1,-30,0,6), BackgroundColor3=T.DN, Text="✕", TextColor3=Color3.new(1,1,1), TextSize=11, Font=Enum.Font.GothamBold, Parent=AH})
-UI.Corner(clA, 5)
-clA.MouseButton1Click:Connect(function()
-    pcall(function() AF.Visible=false end)
-    pcall(function() Hub.Visible=true Hub.Size=UDim2.new(0,480,0,600) Hub.Position=UDim2.new(0.5,-240,0.5,-300) end)
-end)
-mnA = UI.Create("TextButton", {Size=UDim2.new(0,24,0,20), Position=UDim2.new(1,-60,0,6), BackgroundColor3=T.WN, Text="—", TextColor3=Color3.new(1,1,1), TextSize=11, Font=Enum.Font.GothamBold, Parent=AH})
-UI.Corner(mnA, 5) miniState=false
-mnA.MouseButton1Click:Connect(function() miniState=not miniState pcall(function() TweenService:Create(AF,TweenInfo.new(0.2),{Size=UDim2.new(1,0,0,miniState and 32 or 350)}):Play() end) end)
 
 -- TOOLBAR
-TBF = UI.Create("Frame", {Size=UDim2.new(1,0,0,38), Position=UDim2.new(0,0,0,32), BackgroundColor3=Color3.fromRGB(22,25,35), BorderSizePixel=0, Parent=AF})
-TBS = UI.Create("ScrollingFrame", {Size=UDim2.new(1,-4,1,-4), Position=UDim2.new(0,2,0,2), BackgroundTransparency=1, ScrollBarThickness=4, ScrollBarImageColor3=T.PR, ScrollingDirection=Enum.ScrollingDirection.X, CanvasSize=UDim2.new(0,1800,0,0), Parent=TBF})
-pcall(function() TBS.ElasticBehavior=Enum.ElasticBehavior.Never end)
-UI.Create("UIListLayout", {FillDirection=Enum.FillDirection.Horizontal, Padding=UDim.new(0,3), VerticalAlignment=Enum.VerticalAlignment.Center, SortOrder=Enum.SortOrder.LayoutOrder, Parent=TBS})
+local tb = New("Frame", {Size=UDim2.new(1,0,0,34), Position=UDim2.new(0,0,0,30), BackgroundColor3=C.bg2, BorderSizePixel=0, Parent=AF})
+local tbs = New("ScrollingFrame", {Size=UDim2.new(1,-4,1,-4), Position=UDim2.new(0,2,0,2), BackgroundTransparency=1, ScrollBarThickness=3, ScrollBarImageColor3=C.blue, ScrollingDirection=Enum.ScrollingDirection.X, CanvasSize=UDim2.new(0,1600,0,0), Parent=tb})
+pcall(function() tbs.ElasticBehavior=Enum.ElasticBehavior.Never end)
+New("UIListLayout", {FillDirection=Enum.FillDirection.Horizontal, Padding=UDim.new(0,2), VerticalAlignment=Enum.VerticalAlignment.Center, SortOrder=Enum.SortOrder.LayoutOrder, Parent=tbs})
 
-function TB(txt, ord, col, cb)
-    local b = UI.Create("TextButton", {Size=UDim2.new(0,math.max(#txt*7+12,46),0,28), BackgroundColor3=col or T.SF, Text=txt, TextColor3=T.TX, TextSize=10, Font=Enum.Font.GothamBold, LayoutOrder=ord, AutoButtonColor=false, Parent=TBS})
-    UI.Corner(b, 6)
-    b.MouseEnter:Connect(function() pcall(function() TweenService:Create(b,TweenInfo.new(0.1),{BackgroundColor3=T.PR}):Play() end) end)
-    b.MouseLeave:Connect(function() pcall(function() TweenService:Create(b,TweenInfo.new(0.1),{BackgroundColor3=col or T.SF}):Play() end) end)
+SAP.tbs = tbs
+
+function SAP.TB(txt, ord, col, cb)
+    local b = New("TextButton", {Size=UDim2.new(0,math.max(#txt*6.5+10,40),0,26), BackgroundColor3=col or C.bg3, Text=txt, TextColor3=C.text, TextSize=9, Font=Enum.Font.GothamBold, LayoutOrder=ord, AutoButtonColor=false, Parent=tbs})
+    SAP.Corner(b,5)
+    b.MouseEnter:Connect(function() pcall(function() SAP.TS:Create(b,TweenInfo.new(0.08),{BackgroundColor3=C.blue}):Play() end) end)
+    b.MouseLeave:Connect(function() pcall(function() SAP.TS:Create(b,TweenInfo.new(0.08),{BackgroundColor3=col or C.bg3}):Play() end) end)
     if cb then b.MouseButton1Click:Connect(cb) end
     return b
 end
 
 -- SELECT
-selBtn = TB("🎯Select",1,T.PU,nil)
-selectMode=false selectConn=nil
-function CleanSel()
-    selectMode=false
-    if selectConn then pcall(function() selectConn:Disconnect() end) selectConn=nil end
-end
-function FindTgt(obj)
-    if not obj then return nil end
-    local cur=obj
-    for i=1,5 do if not cur then break end if cur:IsA("Model") then return cur end cur=cur.Parent end
-    if obj:IsA("BasePart") then if obj.Parent and obj.Parent:IsA("Model") then return obj.Parent end return obj end
-    return obj
-end
-function SetTgt(tgt)
-    if not tgt then return end
-    CleanSel()
-    local nm="?" pcall(function() nm=tgt.Name end)
-    if #nm>7 then nm=nm:sub(1,7) end
-    Eng:ScanTarget(tgt)
-    selBtn.Text="🎯"..nm selBtn.BackgroundColor3=T.OK
-    spawn(function() wait(1.5) pcall(function() selBtn.BackgroundColor3=T.PU end) end)
-end
-selBtn.MouseButton1Click:Connect(function()
-    if selectMode then CleanSel() selBtn.Text="🎯Select" selBtn.BackgroundColor3=T.PU return end
-    selectMode=true selBtn.Text="🎯Click..." selBtn.BackgroundColor3=T.WN
-    selectConn=Mouse.Button1Down:Connect(function()
-        local hit=nil pcall(function() hit=Mouse.Target end)
-        if hit then local tgt=FindTgt(hit) if tgt then SetTgt(tgt) return end end
-        CleanSel() selBtn.Text="🎯Select" selBtn.BackgroundColor3=T.PU
-    end)
-    spawn(function()
-        local ck=0
-        while selectMode and ck<200 do ck=ck+1
-            local ok,r=pcall(function()
-                if Selection then local sel=Selection:Get() if sel and type(sel)=="table" and #sel>0 then local it=sel[1] if it and typeof(it)=="Instance" then return it end end end return nil
-            end)
-            if ok and r then local tgt=FindTgt(r) if tgt then SetTgt(tgt) return end end
-            wait(0.15)
-        end
-        if selectMode then CleanSel() pcall(function() selBtn.Text="🎯Select" selBtn.BackgroundColor3=T.PU end) end
-    end)
-end)
-
-TB("+KEY",2,T.KF,function() Eng:AddKeyframe() end)
-TB("VEL-",3,nil,function() Eng.Speed=math.max(0.1,Eng.Speed-0.1) Eng.Speed=math.floor(Eng.Speed*10+0.5)/10 end)
-TB("VEL+",4,nil,function() Eng.Speed=math.min(10,Eng.Speed+0.1) Eng.Speed=math.floor(Eng.Speed*10+0.5)/10 end)
-
-ati=1
-atBtn=TB("Core",5,T.CY,nil)
-atBtn.MouseButton1Click:Connect(function() ati=ati+1 if ati>#Eng.AnimTypes then ati=1 end Eng.AnimType=Eng.AnimTypes[ati] atBtn.Text=Eng.AnimType end)
-
-TB("Undo↩️",6,nil,function() Eng:Undo() end)
-TB("Redo↪️",7,nil,function() Eng:Redo() end)
-TB("Copy📋",8,nil,function() Eng:CopyKF() end)
-TB("Paste📋",9,nil,function() Eng:PasteKF() end)
-TB("Clear🗑️",10,T.DN,function() Eng:ClearAll() end)
-
-ipi=1
-ipBtn=TB("Linear",11,nil,nil)
-ipBtn.MouseButton1Click:Connect(function() ipi=ipi+1 if ipi>#Eng.InterpModes then ipi=1 end Eng.InterpMode=Eng.InterpModes[ipi] ipBtn.Text=Eng.InterpMode end)
-
-TB("Mirror🪞",12,nil,function() Eng:MirrorKF() end)
-TB("Rev⏪",13,nil,function() Eng:ReverseKFs() end)
-
-loopBtn=TB("Loop🔁",14,nil,nil)
-loopBtn.MouseButton1Click:Connect(function() Eng.IsLooping=not Eng.IsLooping if Eng.IsLooping then loopBtn.BackgroundColor3=T.OK loopBtn.Text="Loop✅" else loopBtn.BackgroundColor3=T.SF loopBtn.Text="Loop🔁" end end)
-
-TB("Dup📑",15,nil,function() Eng:DupKF(Eng.CurrentTime,Eng.CurrentTime+0.5) end)
-TB("Scale⏱️",16,nil,function() Eng:ScaleTime(1.5) end)
-
-snapBtn=TB("Snap📐",17,nil,nil)
-snapBtn.MouseButton1Click:Connect(function() Eng.SnapGrid=not Eng.SnapGrid snapBtn.BackgroundColor3=Eng.SnapGrid and T.OK or T.SF end)
-
-akBtn=TB("AutoKey🔑",18,nil,nil)
-akBtn.MouseButton1Click:Connect(function() Eng.AutoKey=not Eng.AutoKey akBtn.BackgroundColor3=Eng.AutoKey and T.WN or T.SF end)
-
-onBtn=TB("Onion🧅",19,nil,nil)
-onBtn.MouseButton1Click:Connect(function() Eng.OnionSkin=not Eng.OnionSkin onBtn.BackgroundColor3=Eng.OnionSkin and T.PU or T.SF end)
-
-TB("Mark📌",20,nil,function() Eng:AddMarker(Eng.CurrentTime,"M"..(#Eng.Markers+1)) end)
-
-edi=1
-edBtn=TB("InOut",21,nil,nil)
-edBtn.MouseButton1Click:Connect(function() edi=edi+1 if edi>#Eng.EasingDirs then edi=1 end Eng.EasingDir=Eng.EasingDirs[edi] edBtn.Text=Eng.EasingDir end)
-
-TB("Ghost👻",22,nil,function() end)
-TB("DelKF❌",23,nil,function() Eng:RemoveKFAt(Eng.CurrentTime) end)
-TB("MvKF➡️",24,nil,function()
-    for _,kf in ipairs(Eng.Keyframes) do if math.abs(kf.time-Eng.CurrentTime)<0.05 then Eng:PushUndo() kf.time=kf.time+0.1 break end end
-    table.sort(Eng.Keyframes,function(a,b) return a.time<b.time end)
-end)
-TB("Reset🔄",25,nil,function() Eng:ResetPose() end)
-TB("Save💾",26,T.OK,function() pcall(function() if SG:FindFirstChild("SaveM") then SG.SaveM.Visible=not SG.SaveM.Visible end end) end)
-TB("Export📤",27,T.AC,function() pcall(function() if SG:FindFirstChild("ExpM") then SG.ExpM.Visible=not SG.ExpM.Visible end end) end)
-TB("CE🖋️",28,T.CY,function() pcall(function() if SG:FindFirstChild("CurveEd") then SG.CurveEd.Visible=not SG.CurveEd.Visible end end) end)
-
-spawn(function() wait(0.1)
-    local tw=0 for _,ch in ipairs(TBS:GetChildren()) do if ch:IsA("TextButton") then tw=tw+ch.Size.X.Offset+3 end end
-    TBS.CanvasSize=UDim2.new(0,tw+20,0,0)
-end)
-print("P5 OK")
-
---[[
-    Snow Hub Studios - PARTE 6/7
-    Timeline, Playback & Panels
-]]
-
-TLF = UI.Create("Frame", {Size=UDim2.new(1,0,0,110), Position=UDim2.new(0,0,0,70), BackgroundColor3=T.TL, BorderSizePixel=0, Parent=AF})
-TLH = UI.Create("Frame", {Size=UDim2.new(1,0,0,20), BackgroundColor3=Color3.fromRGB(18,20,30), BorderSizePixel=0, Parent=TLF})
-timeDisp = UI.Create("TextLabel", {Size=UDim2.new(0,260,1,0), Position=UDim2.new(0,6,0,0), BackgroundTransparency=1, Text="T:0.000s Spd:1.0x KFs:0", TextColor3=T.AC, TextSize=9, Font=Enum.Font.Code, TextXAlignment=Enum.TextXAlignment.Left, Parent=TLH})
-jntDisp = UI.Create("TextLabel", {Size=UDim2.new(0,180,1,0), Position=UDim2.new(0,280,0,0), BackgroundTransparency=1, Text="J:0 Tgt:None", TextColor3=T.TD, TextSize=9, Font=Enum.Font.Code, TextXAlignment=Enum.TextXAlignment.Left, Parent=TLH})
-
-TLR = UI.Create("Frame", {Size=UDim2.new(1,0,0,14), Position=UDim2.new(0,0,0,20), BackgroundColor3=Color3.fromRGB(28,31,42), BorderSizePixel=0, Parent=TLF})
-pps = 100
-TLS = UI.Create("ScrollingFrame", {Size=UDim2.new(1,0,0,74), Position=UDim2.new(0,0,0,34), BackgroundColor3=Color3.fromRGB(20,22,32), ScrollBarThickness=3, ScrollBarImageColor3=T.PR, ScrollingDirection=Enum.ScrollingDirection.X, CanvasSize=UDim2.new(0,3000,0,0), BorderSizePixel=0, Parent=TLF})
-pcall(function() TLS.ElasticBehavior=Enum.ElasticBehavior.Never end)
-
-for i=0,30 do
-    local xp=i*pps
-    UI.Create("Frame", {Size=UDim2.new(0,1,0.5,0), Position=UDim2.new(0,xp,0.5,0), BackgroundColor3=T.TD, BorderSizePixel=0, Parent=TLR})
-    UI.Create("TextLabel", {Size=UDim2.new(0,20,0,10), Position=UDim2.new(0,xp-10,0,0), BackgroundTransparency=1, Text=i.."s", TextColor3=T.TD, TextSize=7, Font=Enum.Font.Code, Parent=TLR})
-end
-
-PH = UI.Create("Frame", {Size=UDim2.new(0,2,1,0), Position=UDim2.new(0,0,0,0), BackgroundColor3=T.DN, BorderSizePixel=0, ZIndex=10, Parent=TLS})
-PHT = UI.Create("Frame", {Size=UDim2.new(0,10,0,10), Position=UDim2.new(0.5,-5,0,-1), BackgroundColor3=T.DN, ZIndex=11, Parent=PH})
-UI.Corner(PHT, 3)
-
-kfDiamonds = {}
-function UpdateTL()
-    for _,d in ipairs(kfDiamonds) do pcall(function() if d and d.Parent then d:Destroy() end end) end
-    kfDiamonds = {}
-    for _,kf in ipairs(Eng.Keyframes) do
-        local xp=kf.time*pps
-        local dm = UI.Create("TextButton", {Size=UDim2.new(0,12,0,12), Position=UDim2.new(0,xp-6,0.5,-6), BackgroundColor3=T.KF, Rotation=45, Text="", ZIndex=8, Parent=TLS})
-        if dm then
-            UI.Corner(dm, 2)
-            dm.MouseButton1Click:Connect(function() Eng.CurrentTime=kf.time Eng:GoTo(Eng.CurrentTime) end)
-            dm.MouseEnter:Connect(function() pcall(function() dm.BackgroundColor3=T.KS end) end)
-            dm.MouseLeave:Connect(function() pcall(function() dm.BackgroundColor3=T.KF end) end)
-            table.insert(kfDiamonds, dm)
-        end
+SAP.selBtn = SAP.TB("🎯Select",1,C.purple,nil)
+SAP.selMode=false SAP.selConn=nil
+SAP.selBtn.MouseButton1Click:Connect(function()
+    if SAP.selMode then
+        SAP.selMode=false if SAP.selConn then pcall(function() SAP.selConn:Disconnect() end) SAP.selConn=nil end
+        SAP.selBtn.Text="🎯Select" SAP.selBtn.BackgroundColor3=C.purple return
     end
-    for _,m in ipairs(Eng.Markers) do
-        local ml = UI.Create("Frame", {Size=UDim2.new(0,1,1,0), Position=UDim2.new(0,m.time*pps,0,0), BackgroundColor3=m.color, BackgroundTransparency=0.4, BorderSizePixel=0, ZIndex=7, Parent=TLS})
-        if ml then table.insert(kfDiamonds, ml) end
-    end
-    pcall(function() PH.Position=UDim2.new(0,Eng.CurrentTime*pps,0,0) end)
-    pcall(function() timeDisp.Text=string.format("T:%.3fs Spd:%.1fx KFs:%d", Eng.CurrentTime, Eng.Speed, #Eng.Keyframes) end)
-    pcall(function()
-        local tn = "None"
-        if Eng.Target then pcall(function() tn=Eng.Target.Name end) if #tn>10 then tn=tn:sub(1,10) end end
-        jntDisp.Text=string.format("J:%d Tgt:%s", #Eng.AllJoints, tn)
-    end)
-end
-
-TLS.InputBegan:Connect(function(inp)
-    if inp.UserInputType==Enum.UserInputType.MouseButton1 or inp.UserInputType==Enum.UserInputType.Touch then
+    SAP.selMode=true SAP.selBtn.Text="🎯Click..." SAP.selBtn.BackgroundColor3=C.orange
+    SAP.selConn=SAP.Mouse.Button1Down:Connect(function()
         pcall(function()
-            local rx=inp.Position.X-TLS.AbsolutePosition.X+TLS.CanvasPosition.X
-            Eng.CurrentTime=math.max(0,rx/pps)
-            Eng:GoTo(Eng.CurrentTime)
-        end)
-    end
-end)
-
--- PLAYBACK
-PBF = UI.Create("Frame", {Size=UDim2.new(1,0,0,36), Position=UDim2.new(0,0,0,180), BackgroundColor3=Color3.fromRGB(18,20,30), BorderSizePixel=0, Parent=AF})
-UI.Create("UIListLayout", {FillDirection=Enum.FillDirection.Horizontal, HorizontalAlignment=Enum.HorizontalAlignment.Center, VerticalAlignment=Enum.VerticalAlignment.Center, Padding=UDim.new(0,4), Parent=PBF})
-
-function PBBtn(txt,sz,col,cb)
-    local b = UI.Create("TextButton", {Size=UDim2.new(0,sz,0,26), BackgroundColor3=col, Text=txt, TextColor3=Color3.new(1,1,1), TextSize=14, Font=Enum.Font.GothamBold, Parent=PBF})
-    UI.Corner(b, 6) b.MouseButton1Click:Connect(cb) return b
-end
-
-PBBtn("⏮",34,T.SF,function() Eng.CurrentTime=0 Eng:GoTo(0) end)
-PBBtn("⏪",34,T.SF,function() Eng.CurrentTime=math.max(0,Eng.CurrentTime-1/Eng.FPS) Eng:GoTo(Eng.CurrentTime) end)
-playBtn=PBBtn("▶",44,T.OK,nil)
-playBtn.MouseButton1Click:Connect(function()
-    if Eng.IsPlaying then Eng:Pause() playBtn.Text="▶" playBtn.BackgroundColor3=T.OK
-    else Eng:Play() playBtn.Text="⏸" playBtn.BackgroundColor3=T.WN end
-end)
-PBBtn("⏹",38,T.DN,function() Eng:Stop() Eng.CurrentTime=0 Eng:GoTo(0) playBtn.Text="▶" playBtn.BackgroundColor3=T.OK end)
-PBBtn("⏩",34,T.SF,function() Eng.CurrentTime=Eng.CurrentTime+1/Eng.FPS Eng:GoTo(Eng.CurrentTime) end)
-PBBtn("⏭",34,T.SF,function() Eng.CurrentTime=Eng:GetMaxTime() Eng:GoTo(Eng.CurrentTime) end)
-spdDisp = UI.Create("TextLabel", {Size=UDim2.new(0,50,0,22), BackgroundColor3=T.SF, Text="1.0x", TextColor3=T.AC, TextSize=11, Font=Enum.Font.Code, Parent=PBF})
-UI.Corner(spdDisp, 5)
-
--- JOINT PANEL
-JP = UI.Create("Frame", {Size=UDim2.new(0,170,0,130), Position=UDim2.new(0,0,0,216), BackgroundColor3=Color3.fromRGB(22,25,35), BorderSizePixel=0, Parent=AF})
-UI.Create("TextLabel", {Size=UDim2.new(1,0,0,16), BackgroundColor3=Color3.fromRGB(18,20,30), Text=" 🦴 Joints", TextColor3=T.TX, TextSize=9, Font=Enum.Font.GothamBold, TextXAlignment=Enum.TextXAlignment.Left, Parent=JP})
-JSc = UI.Create("ScrollingFrame", {Size=UDim2.new(1,0,0,110), Position=UDim2.new(0,0,0,18), BackgroundTransparency=1, ScrollBarThickness=2, CanvasSize=UDim2.new(0,0,0,0), Parent=JP})
-pcall(function() JSc.ElasticBehavior=Enum.ElasticBehavior.Never end)
-UI.Create("UIListLayout", {Padding=UDim.new(0,1), Parent=JSc})
-
-function UpdateJL()
-    for _,ch in ipairs(JSc:GetChildren()) do if ch:IsA("TextButton") then pcall(function() ch:Destroy() end) end end
-    JSc.CanvasSize=UDim2.new(0,0,0,#Eng.AllJoints*16)
-    for _,j in ipairs(Eng.AllJoints) do
-        local ic="🔗"
-        if j.Type=="Motor6D" then ic="🦴" elseif j.Type=="Part" then ic="🔷" elseif j.Type=="GUI" then ic="🖼️" elseif j.Type=="FX" then ic="✨" end
-        local jb = UI.Create("TextButton", {Size=UDim2.new(1,-3,0,14), BackgroundColor3=T.SF, BackgroundTransparency=0.4, Text=" "..ic.." "..j.Name, TextColor3=T.TD, TextSize=7, Font=Enum.Font.Code, TextXAlignment=Enum.TextXAlignment.Left, Parent=JSc})
-        if jb then UI.Corner(jb, 3)
-            jb.MouseButton1Click:Connect(function()
-                if j.Inst and Selection then pcall(function() Selection:Set({j.Inst}) end) end
-                pcall(function() jb.BackgroundColor3=T.PR jb.TextColor3=Color3.new(1,1,1) end)
-            end)
-        end
-    end
-end
-
--- INFO PANEL
-IP = UI.Create("Frame", {Size=UDim2.new(1,-170,0,130), Position=UDim2.new(0,170,0,216), BackgroundColor3=Color3.fromRGB(22,25,35), BorderSizePixel=0, ClipsDescendants=true, Parent=AF})
-UI.Create("TextLabel", {Size=UDim2.new(1,0,0,16), BackgroundColor3=Color3.fromRGB(18,20,30), Text=" 📊 Info", TextColor3=T.TX, TextSize=9, Font=Enum.Font.GothamBold, TextXAlignment=Enum.TextXAlignment.Left, Parent=IP})
-infoLabels = {}
-ISc = UI.Create("ScrollingFrame", {Size=UDim2.new(1,0,0,110), Position=UDim2.new(0,0,0,18), BackgroundTransparency=1, ScrollBarThickness=2, CanvasSize=UDim2.new(0,0,0,140), Parent=IP})
-UI.Create("UIListLayout", {Padding=UDim.new(0,2), Parent=ISc})
-for _,nm in ipairs({"Type","Interp","KFs","Time","Speed","Target","View","Loop"}) do
-    local il = UI.Create("TextLabel", {Size=UDim2.new(1,-4,0,13), BackgroundColor3=T.SF, BackgroundTransparency=0.5, Text=" "..nm..": —", TextColor3=T.TD, TextSize=8, Font=Enum.Font.Code, TextXAlignment=Enum.TextXAlignment.Left, Parent=ISc})
-    if il then UI.Corner(il, 3) table.insert(infoLabels, il) end
-end
-
--- UPDATE LOOP
-uc=0
-RunService.RenderStepped:Connect(function(dt)
-    uc=uc+1
-    if uc%2==0 then
-        pcall(function() UpdateTL() end)
-        pcall(function() spdDisp.Text=string.format("%.1fx",Eng.Speed) end)
-        pcall(function() if not Eng.IsPlaying then playBtn.Text="▶" playBtn.BackgroundColor3=T.OK end end)
-        pcall(function()
-            if #infoLabels>=8 then
-                local tn="None" if Eng.Target then pcall(function() tn=Eng.Target.Name end) if #tn>10 then tn=tn:sub(1,10) end end
-                infoLabels[1].Text=" Type: "..Eng.AnimType
-                infoLabels[2].Text=" Interp: "..Eng.InterpMode
-                infoLabels[3].Text=" KFs: "..#Eng.Keyframes
-                infoLabels[4].Text=string.format(" Time: %.2fs",Eng.CurrentTime)
-                infoLabels[5].Text=string.format(" Speed: %.1fx",Eng.Speed)
-                infoLabels[6].Text=" Tgt: "..tn
-                infoLabels[7].Text=" View: "..Eng.ViewMode
-                infoLabels[8].Text=" Loop: "..(Eng.IsLooping and "ON" or "OFF")
+            local hit=SAP.Mouse.Target
+            if hit then
+                local tgt=hit
+                for i=1,5 do if tgt.Parent and tgt.Parent:IsA("Model") then tgt=tgt.Parent end end
+                E.scan(tgt)
+                local nm=tgt.Name if #nm>8 then nm=nm:sub(1,8) end
+                SAP.selBtn.Text="🎯"..nm
             end
         end)
-        pcall(function() fpsL.Text=math.floor(1/dt).."FPS" end)
+        SAP.selMode=false SAP.selBtn.BackgroundColor3=C.purple
+        if SAP.selConn then pcall(function() SAP.selConn:Disconnect() end) SAP.selConn=nil end
+    end)
+end)
+
+-- TODOS OS BOTÕES
+SAP.TB("+KEY",2,C.kf,function() E.addKF() end)
+SAP.TB("VEL-",3,nil,function() E.speed=math.max(0.1,math.floor((E.speed-0.1)*10+.5)/10) end)
+SAP.TB("VEL+",4,nil,function() E.speed=math.min(10,math.floor((E.speed+0.1)*10+.5)/10) end)
+SAP.ati=1
+SAP.atBtn=SAP.TB("Action1",5,C.cyan,nil)
+SAP.atBtn.MouseButton1Click:Connect(function() SAP.ati=SAP.ati%#E.animTypes+1 E.animType=E.animTypes[SAP.ati] SAP.atBtn.Text=E.animType end)
+SAP.TB("Undo↩️",6,nil,function() E.undo() E.goTo(E.time) end)
+SAP.TB("Redo↪️",7,nil,function() E.redo() E.goTo(E.time) end)
+SAP.TB("Copy📋",8,nil,function() E.copyKF() end)
+SAP.TB("Paste📋",9,nil,function() E.pasteKF() end)
+SAP.TB("Clear🗑️",10,C.red,function() E.clearAll() end)
+SAP.ipi=1
+SAP.ipBtn=SAP.TB("Linear",11,nil,nil)
+SAP.ipBtn.MouseButton1Click:Connect(function() SAP.ipi=SAP.ipi%#E.interpModes+1 E.interpMode=E.interpModes[SAP.ipi] SAP.ipBtn.Text=E.interpMode end)
+SAP.TB("Mirror🪞",12,nil,function() E.mirror() end)
+SAP.TB("Rev⏪",13,nil,function() E.reverse() end)
+SAP.loopBtn=SAP.TB("Loop🔁",14,nil,nil)
+SAP.loopBtn.MouseButton1Click:Connect(function() E.looping=not E.looping SAP.loopBtn.BackgroundColor3=E.looping and C.green or C.bg3 SAP.loopBtn.Text=E.looping and "Loop✅" or "Loop🔁" end)
+SAP.TB("Dup📑",15,nil,function() E.dupKF() end)
+SAP.TB("DelKF❌",16,nil,function() E.removeKF() end)
+SAP.TB("MvKF→",17,nil,function()
+    for _,kf in ipairs(E.kfs) do if math.abs(kf.t-E.time)<0.05 then E.pushUndo() kf.t=kf.t+0.1 break end end
+    table.sort(E.kfs,function(a,b) return a.t<b.t end)
+end)
+SAP.TB("Reset🔄",18,nil,function() E.resetPose() end)
+SAP.edi=1
+SAP.edBtn=SAP.TB("InOut",19,nil,nil)
+SAP.edBtn.MouseButton1Click:Connect(function() SAP.edi=SAP.edi%#E.easingDirs+1 E.easingDir=E.easingDirs[SAP.edi] SAP.edBtn.Text=E.easingDir end)
+SAP.akBtn=SAP.TB("AutoKey🔑",20,nil,nil)
+SAP.akBtn.MouseButton1Click:Connect(function() E.autoKey=not E.autoKey SAP.akBtn.BackgroundColor3=E.autoKey and C.orange or C.bg3 end)
+SAP.TB("Save💾",21,C.green,function() pcall(function() SAP.SG:FindFirstChild("SaveMenu").Visible=true end) end)
+SAP.TB("Export📤",22,C.cyan,function() pcall(function() SAP.SG:FindFirstChild("ExportMenu").Visible=true end) end)
+SAP.TB("CE🖋️",23,C.purple,function() pcall(function() SAP.SG:FindFirstChild("CurveEditor").Visible=true end) end)
+
+spawn(function() wait(0.1)
+    local tw=0 for _,ch in ipairs(tbs:GetChildren()) do if ch:IsA("TextButton") then tw=tw+ch.Size.X.Offset+2 end end
+    tbs.CanvasSize=UDim2.new(0,tw+10,0,0)
+end)
+
+print("[SAP] Part 3 OK - Interface")
+
+--[[
+    Snow Animator Pro v3 - PARTE 4/7
+    TIMELINE & PLAYBACK
+]]
+local SAP = _G.SAP
+local E = SAP.E
+local C = SAP.C
+local New = SAP.New
+local AF = SAP.AF
+
+-- KF PANEL (timeline + playback)
+SAP.kfPanel = New("Frame", {Name="KFPanel", Size=UDim2.new(1,0,0,170), Position=UDim2.new(0,0,0,64), BackgroundColor3=C.tl, BorderSizePixel=0, Parent=AF})
+
+-- Info bar
+local ib = New("Frame", {Size=UDim2.new(1,0,0,18), BackgroundColor3=Color3.fromRGB(14,16,24), BorderSizePixel=0, Parent=SAP.kfPanel})
+SAP.timeL = New("TextLabel", {Size=UDim2.new(0,300,1,0), Position=UDim2.new(0,6,0,0), BackgroundTransparency=1, Text="T:0.00 | Spd:1.0x | KFs:0 | J:0", TextColor3=C.cyan, TextSize=9, Font=Enum.Font.Code, TextXAlignment=Enum.TextXAlignment.Left, Parent=ib})
+
+-- Ruler
+local rl = New("Frame", {Size=UDim2.new(1,0,0,14), Position=UDim2.new(0,0,0,18), BackgroundColor3=Color3.fromRGB(26,29,40), BorderSizePixel=0, Parent=SAP.kfPanel})
+SAP.pps = 80
+for i=0,40 do
+    New("Frame", {Size=UDim2.new(0,1,0.5,0), Position=UDim2.new(0,i*SAP.pps,0.5,0), BackgroundColor3=C.dim, BorderSizePixel=0, Parent=rl})
+    New("TextLabel", {Size=UDim2.new(0,18,0,10), Position=UDim2.new(0,i*SAP.pps-9,0,0), BackgroundTransparency=1, Text=i.."s", TextColor3=C.dim, TextSize=7, Font=Enum.Font.Code, Parent=rl})
+end
+
+-- Timeline scroll
+SAP.tls = New("ScrollingFrame", {Size=UDim2.new(1,0,0,68), Position=UDim2.new(0,0,0,32), BackgroundColor3=Color3.fromRGB(18,20,30), ScrollBarThickness=3, ScrollBarImageColor3=C.blue, ScrollingDirection=Enum.ScrollingDirection.X, CanvasSize=UDim2.new(0,4000,0,0), BorderSizePixel=0, Parent=SAP.kfPanel})
+pcall(function() SAP.tls.ElasticBehavior=Enum.ElasticBehavior.Never end)
+
+-- Playhead
+SAP.ph = New("Frame", {Size=UDim2.new(0,2,1,0), BackgroundColor3=C.red, BorderSizePixel=0, ZIndex=10, Parent=SAP.tls})
+New("Frame", {Size=UDim2.new(0,10,0,10), Position=UDim2.new(0.5,-5,0,-1), BackgroundColor3=C.red, ZIndex=11, Parent=SAP.ph})
+
+-- Click/touch timeline
+local draggingTL = false
+SAP.tls.InputBegan:Connect(function(inp)
+    if inp.UserInputType==Enum.UserInputType.MouseButton1 or inp.UserInputType==Enum.UserInputType.Touch then
+        draggingTL = true
+        pcall(function()
+            local rx=inp.Position.X-SAP.tls.AbsolutePosition.X+SAP.tls.CanvasPosition.X
+            E.time=math.max(0,rx/SAP.pps)
+            if not E.playing then E.goTo(E.time) end
+        end)
+    end
+end)
+SAP.tls.InputChanged:Connect(function(inp)
+    if draggingTL and (inp.UserInputType==Enum.UserInputType.MouseMovement or inp.UserInputType==Enum.UserInputType.Touch) then
+        pcall(function()
+            local rx=inp.Position.X-SAP.tls.AbsolutePosition.X+SAP.tls.CanvasPosition.X
+            E.time=math.max(0,rx/SAP.pps)
+            if not E.playing then E.goTo(E.time) end
+        end)
+    end
+end)
+SAP.tls.InputEnded:Connect(function(inp)
+    if inp.UserInputType==Enum.UserInputType.MouseButton1 or inp.UserInputType==Enum.UserInputType.Touch then
+        draggingTL = false
+    end
+end)
+
+-- KF diamonds
+SAP.diamonds = {}
+function SAP.updateTL()
+    for _,d in ipairs(SAP.diamonds) do pcall(function() d:Destroy() end) end
+    SAP.diamonds = {}
+    for _,kf in ipairs(E.kfs) do
+        local x = kf.t*SAP.pps
+        local dm = New("TextButton", {Size=UDim2.new(0,10,0,10), Position=UDim2.new(0,x-5,0.5,-5), BackgroundColor3=C.kf, Rotation=45, Text="", ZIndex=8, Parent=SAP.tls})
+        if dm then
+            SAP.Corner(dm,2)
+            local t=kf.t
+            dm.MouseButton1Click:Connect(function() E.time=t if not E.playing then E.goTo(t) end end)
+            table.insert(SAP.diamonds, dm)
+        end
+    end
+    pcall(function() SAP.ph.Position=UDim2.new(0,E.time*SAP.pps,0,0) end)
+    pcall(function()
+        local tn="None" if E.target then pcall(function() tn=E.target.Name end) end
+        SAP.timeL.Text=string.format("T:%.2f | Spd:%.1fx | KFs:%d | J:%d | %s", E.time, E.speed, #E.kfs, #E.joints, tn)
+    end)
+end
+
+-- PLAYBACK BAR
+local pb = New("Frame", {Size=UDim2.new(1,0,0,32), Position=UDim2.new(0,0,0,100), BackgroundColor3=Color3.fromRGB(14,16,24), BorderSizePixel=0, Parent=SAP.kfPanel})
+New("UIListLayout", {FillDirection=Enum.FillDirection.Horizontal, HorizontalAlignment=Enum.HorizontalAlignment.Center, VerticalAlignment=Enum.VerticalAlignment.Center, Padding=UDim.new(0,4), Parent=pb})
+
+local function PB(txt,sz,col,cb)
+    local b = New("TextButton", {Size=UDim2.new(0,sz,0,24), BackgroundColor3=col, Text=txt, TextColor3=C.white, TextSize=13, Font=Enum.Font.GothamBold, Parent=pb})
+    SAP.Corner(b,5) b.MouseButton1Click:Connect(cb) return b
+end
+
+PB("⏮",30,C.bg3,function() E.time=0 E.goTo(0) end)
+PB("⏪",30,C.bg3,function() E.time=math.max(0,E.time-1/E.fps) E.goTo(E.time) end)
+SAP.playBtn=PB("▶",40,C.green,nil)
+SAP.playBtn.MouseButton1Click:Connect(function()
+    if E.tweenMode then
+        if E.playing then E.stop() SAP.playBtn.Text="▶" SAP.playBtn.BackgroundColor3=C.green
+        else E.tweenPlay() SAP.playBtn.Text="⏸" SAP.playBtn.BackgroundColor3=C.orange end
+    else
+        if E.playing then E.pause() SAP.playBtn.Text="▶" SAP.playBtn.BackgroundColor3=C.green
+        else E.play() SAP.playBtn.Text="⏸" SAP.playBtn.BackgroundColor3=C.orange end
+    end
+end)
+PB("⏹",34,C.red,function() E.stop() E.time=0 E.goTo(0) SAP.playBtn.Text="▶" SAP.playBtn.BackgroundColor3=C.green end)
+PB("⏩",30,C.bg3,function() E.time=E.time+1/E.fps E.goTo(E.time) end)
+PB("⏭",30,C.bg3,function() E.time=E.maxTime() E.goTo(E.time) end)
+SAP.spdL = New("TextLabel", {Size=UDim2.new(0,44,0,20), BackgroundColor3=C.bg3, Text="1.0x", TextColor3=C.cyan, TextSize=10, Font=Enum.Font.Code, Parent=pb})
+SAP.Corner(SAP.spdL,4)
+
+-- JOINT LIST
+local jp = New("Frame", {Size=UDim2.new(0,160,0,100), Position=UDim2.new(0,0,0,132), BackgroundColor3=C.bg2, BorderSizePixel=0, Parent=SAP.kfPanel})
+New("TextLabel", {Size=UDim2.new(1,0,0,14), BackgroundColor3=Color3.fromRGB(14,16,24), Text=" 🦴Joints", TextColor3=C.text, TextSize=8, Font=Enum.Font.GothamBold, TextXAlignment=Enum.TextXAlignment.Left, Parent=jp})
+SAP.jsc = New("ScrollingFrame", {Size=UDim2.new(1,0,0,84), Position=UDim2.new(0,0,0,15), BackgroundTransparency=1, ScrollBarThickness=2, CanvasSize=UDim2.new(0,0,0,0), Parent=jp})
+pcall(function() SAP.jsc.ElasticBehavior=Enum.ElasticBehavior.Never end)
+New("UIListLayout", {Padding=UDim.new(0,1), Parent=SAP.jsc})
+
+function SAP.updateJoints()
+    for _,ch in ipairs(SAP.jsc:GetChildren()) do if ch:IsA("TextButton") then ch:Destroy() end end
+    SAP.jsc.CanvasSize=UDim2.new(0,0,0,#E.joints*14)
+    for _,j in ipairs(E.joints) do
+        local ic = j.t=="m6d" and "🦴" or j.t=="part" and "🔷" or j.t=="gui" and "🖼️" or "✨"
+        New("TextButton", {Size=UDim2.new(1,-2,0,12), BackgroundColor3=C.bg3, BackgroundTransparency=.4, Text=" "..ic.." "..j.name, TextColor3=C.dim, TextSize=7, Font=Enum.Font.Code, TextXAlignment=Enum.TextXAlignment.Left, Parent=SAP.jsc})
+    end
+end
+
+print("[SAP] Part 4 OK - Timeline")
+
+--[[
+    Snow Animator Pro v3 - PARTE 5/7
+    TWEEN MODE PANEL & CURVE EDITOR
+]]
+local SAP = _G.SAP
+local E = SAP.E
+local C = SAP.C
+local New = SAP.New
+local AF = SAP.AF
+
+-- TWEEN PANEL (alternativo sem keyframes)
+SAP.tweenPanel = New("Frame", {Name="TweenPanel", Size=UDim2.new(1,0,0,170), Position=UDim2.new(0,0,0,64), BackgroundColor3=C.tl, BorderSizePixel=0, Visible=false, Parent=AF})
+
+New("TextLabel", {Size=UDim2.new(1,0,0,20), BackgroundColor3=Color3.fromRGB(14,16,24), Text=" 🎭 Tween Mode - Animate without Keyframes", TextColor3=C.purple, TextSize=10, Font=Enum.Font.GothamBold, TextXAlignment=Enum.TextXAlignment.Left, Parent=SAP.tweenPanel})
+
+local twRow = New("Frame", {Size=UDim2.new(1,0,0,145), Position=UDim2.new(0,0,0,22), BackgroundTransparency=1, Parent=SAP.tweenPanel})
+
+-- Step 1: Capture Start
+local s1 = New("TextButton", {Size=UDim2.new(0,120,0,30), Position=UDim2.new(0,10,0,8), BackgroundColor3=C.green, Text="1️⃣ Set Start Pose", TextColor3=C.white, TextSize=10, Font=Enum.Font.GothamBold, Parent=twRow})
+SAP.Corner(s1,6)
+s1.MouseButton1Click:Connect(function()
+    E.tweenCapStart()
+    s1.BackgroundColor3=Color3.fromRGB(40,160,80)
+    s1.Text="✅ Start Captured"
+    spawn(function() wait(1) pcall(function() s1.Text="1️⃣ Set Start Pose" s1.BackgroundColor3=C.green end) end)
+end)
+
+-- Step 2: Capture End
+local s2 = New("TextButton", {Size=UDim2.new(0,120,0,30), Position=UDim2.new(0,140,0,8), BackgroundColor3=C.blue, Text="2️⃣ Set End Pose", TextColor3=C.white, TextSize=10, Font=Enum.Font.GothamBold, Parent=twRow})
+SAP.Corner(s2,6)
+s2.MouseButton1Click:Connect(function()
+    E.tweenCapEnd()
+    s2.BackgroundColor3=Color3.fromRGB(40,100,200)
+    s2.Text="✅ End Captured"
+    spawn(function() wait(1) pcall(function() s2.Text="2️⃣ Set End Pose" s2.BackgroundColor3=C.blue end) end)
+end)
+
+-- Duration
+New("TextLabel", {Size=UDim2.new(0,50,0,14), Position=UDim2.new(0,10,0,44), BackgroundTransparency=1, Text="Duration:", TextColor3=C.dim, TextSize=8, Font=Enum.Font.Gotham, TextXAlignment=Enum.TextXAlignment.Left, Parent=twRow})
+local durBox = New("TextBox", {Size=UDim2.new(0,50,0,18), Position=UDim2.new(0,65,0,42), BackgroundColor3=C.bg, Text="1", TextColor3=C.cyan, TextSize=9, Font=Enum.Font.Code, ClearTextOnFocus=false, Parent=twRow})
+SAP.Corner(durBox,3)
+durBox.FocusLost:Connect(function() local n=tonumber(durBox.Text) if n then E.tweenDuration=math.clamp(n,0.05,60) end end)
+
+-- Style cycle
+local twStyles = {"Linear","Quad","Cubic","Sine","Bounce","Elastic","Back","Expo"}
+local twsi = 1
+local tsBtn = New("TextButton", {Size=UDim2.new(0,65,0,18), Position=UDim2.new(0,125,0,42), BackgroundColor3=C.bg3, Text="Quad", TextColor3=C.text, TextSize=8, Font=Enum.Font.GothamBold, Parent=twRow})
+SAP.Corner(tsBtn,4)
+tsBtn.MouseButton1Click:Connect(function() twsi=twsi%#twStyles+1 E.tweenStyle=twStyles[twsi] tsBtn.Text=twStyles[twsi] end)
+
+-- Dir cycle
+local tdBtn = New("TextButton", {Size=UDim2.new(0,45,0,18), Position=UDim2.new(0,195,0,42), BackgroundColor3=C.bg3, Text="InOut", TextColor3=C.text, TextSize=8, Font=Enum.Font.GothamBold, Parent=twRow})
+SAP.Corner(tdBtn,4)
+tdBtn.MouseButton1Click:Connect(function()
+    if E.tweenDir=="InOut" then E.tweenDir="In" elseif E.tweenDir=="In" then E.tweenDir="Out" else E.tweenDir="InOut" end
+    tdBtn.Text=E.tweenDir
+end)
+
+-- Loop toggle
+local twLoopB = New("TextButton", {Size=UDim2.new(0,50,0,18), Position=UDim2.new(0,10,0,66), BackgroundColor3=C.bg3, Text="Loop", TextColor3=C.text, TextSize=8, Font=Enum.Font.GothamBold, Parent=twRow})
+SAP.Corner(twLoopB,4)
+twLoopB.MouseButton1Click:Connect(function() E.tweenLoop=not E.tweenLoop twLoopB.BackgroundColor3=E.tweenLoop and C.green or C.bg3 end)
+
+-- Reverse toggle
+local twRevB = New("TextButton", {Size=UDim2.new(0,60,0,18), Position=UDim2.new(0,65,0,66), BackgroundColor3=C.bg3, Text="Reverse", TextColor3=C.text, TextSize=8, Font=Enum.Font.GothamBold, Parent=twRow})
+SAP.Corner(twRevB,4)
+twRevB.MouseButton1Click:Connect(function() E.tweenReverse=not E.tweenReverse twRevB.BackgroundColor3=E.tweenReverse and C.orange or C.bg3 end)
+
+-- Convert to KF
+local twConv = New("TextButton", {Size=UDim2.new(0,110,0,18), Position=UDim2.new(0,135,0,66), BackgroundColor3=C.yellow, Text="Convert to KFs", TextColor3=Color3.fromRGB(30,30,30), TextSize=8, Font=Enum.Font.GothamBold, Parent=twRow})
+SAP.Corner(twConv,4)
+twConv.MouseButton1Click:Connect(function()
+    if E.tweenStartSnap and E.tweenEndSnap then
+        E.pushUndo()
+        E.kfs = {}
+        local jc1={} for k,v in pairs(E.tweenStartSnap) do local vc={} for kk,vv in pairs(v) do vc[kk]=vv end jc1[k]=vc end
+        local jc2={} for k,v in pairs(E.tweenEndSnap) do local vc={} for kk,vv in pairs(v) do vc[kk]=vv end jc2[k]=vc end
+        table.insert(E.kfs, {t=0, j=jc1})
+        table.insert(E.kfs, {t=E.tweenDuration, j=jc2})
+        E.tweenMode=false
+        SAP.modeBtn.Text="KF Mode" SAP.modeBtn.BackgroundColor3=C.blue
+        pcall(function() SAP.tweenPanel.Visible=false SAP.kfPanel.Visible=true end)
+    end
+end)
+
+-- Info
+New("TextLabel", {Size=UDim2.new(1,-10,0,35), Position=UDim2.new(0,5,0,90), BackgroundTransparency=1, Text="1. Select target → 2. Set Start Pose → 3. Move/rotate with gizmos → 4. Set End Pose → 5. Press Play ▶", TextColor3=C.dim, TextSize=8, Font=Enum.Font.Gotham, TextWrapped=true, Parent=twRow})
+
+-- =============================================
+-- CURVE EDITOR (Profissional)
+-- =============================================
+local CE = New("Frame", {Name="CurveEditor", Size=UDim2.new(0,500,0,350), Position=UDim2.new(0.5,-250,0.15,0), BackgroundColor3=C.bg, Visible=false, ZIndex=60, Parent=SAP.SG})
+SAP.Corner(CE,12) SAP.Stroke(CE, C.purple, 2)
+
+-- Header
+local ceH = New("Frame", {Size=UDim2.new(1,0,0,28), BackgroundColor3=Color3.fromRGB(14,16,24), ZIndex=61, Parent=CE})
+SAP.Corner(ceH,12)
+New("TextLabel", {Size=UDim2.new(0,200,1,0), Position=UDim2.new(0,8,0,0), BackgroundTransparency=1, Text="🖋️ Curve Editor Pro", TextColor3=C.white, TextSize=12, Font=Enum.Font.GothamBold, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=62, Parent=ceH})
+local ceClose = New("TextButton", {Size=UDim2.new(0,20,0,20), Position=UDim2.new(1,-24,0,4), BackgroundColor3=C.red, Text="✕", TextColor3=C.white, TextSize=9, Font=Enum.Font.GothamBold, ZIndex=62, Parent=ceH})
+SAP.Corner(ceClose,4) ceClose.MouseButton1Click:Connect(function() CE.Visible=false end)
+
+-- Canvas
+local ceCanvas = New("Frame", {Size=UDim2.new(0.95,0,0,230), Position=UDim2.new(0.025,0,0,34), BackgroundColor3=Color3.fromRGB(10,12,20), ZIndex=61, Parent=CE})
+SAP.Corner(ceCanvas,6) SAP.Stroke(ceCanvas, C.bg3)
+
+-- Grid
+for i=0,10 do
+    New("Frame", {Size=UDim2.new(0,1,1,0), Position=UDim2.new(i/10,0,0,0), BackgroundColor3=Color3.fromRGB(28,32,45), BackgroundTransparency=.5, BorderSizePixel=0, ZIndex=62, Parent=ceCanvas})
+    New("Frame", {Size=UDim2.new(1,0,0,1), Position=UDim2.new(0,0,i/10,0), BackgroundColor3=Color3.fromRGB(28,32,45), BackgroundTransparency=.5, BorderSizePixel=0, ZIndex=62, Parent=ceCanvas})
+end
+-- Axis labels
+New("TextLabel", {Size=UDim2.new(0,20,0,10), Position=UDim2.new(0,-2,1,2), BackgroundTransparency=1, Text="0", TextColor3=C.dim, TextSize=7, Font=Enum.Font.Code, ZIndex=62, Parent=ceCanvas})
+New("TextLabel", {Size=UDim2.new(0,20,0,10), Position=UDim2.new(1,-5,1,2), BackgroundTransparency=1, Text="1", TextColor3=C.dim, TextSize=7, Font=Enum.Font.Code, ZIndex=62, Parent=ceCanvas})
+New("TextLabel", {Size=UDim2.new(0,20,0,10), Position=UDim2.new(0,-14,0,-2), BackgroundTransparency=1, Text="1", TextColor3=C.dim, TextSize=7, Font=Enum.Font.Code, ZIndex=62, Parent=ceCanvas})
+
+-- Curve drawing
+SAP.cePts = {}
+function SAP.drawCurve()
+    for _,p in ipairs(SAP.cePts) do pcall(function() p:Destroy() end) end
+    SAP.cePts = {}
+
+    -- Linear reference line (gray)
+    for i=0,40 do
+        local t=i/40
+        local dot = New("Frame", {Size=UDim2.new(0,2,0,2), Position=UDim2.new(t,-1,1-t,-1), BackgroundColor3=Color3.fromRGB(50,55,70), BorderSizePixel=0, ZIndex=63, Parent=ceCanvas})
+        if dot then table.insert(SAP.cePts, dot) end
+    end
+
+    -- Actual curve (bright)
+    for i=0,80 do
+        local t=i/80
+        local et=E.ease(t, E.interpMode, E.easingDir)
+        et = math.clamp(et, -0.1, 1.1)
+        local dot = New("Frame", {Size=UDim2.new(0,3,0,3), Position=UDim2.new(t,-1,1-et,-1), BackgroundColor3=C.cyan, BorderSizePixel=0, ZIndex=64, Parent=ceCanvas})
+        if dot then SAP.Corner(dot,2) table.insert(SAP.cePts, dot) end
+    end
+
+    -- Control points at start and end
+    local startDot = New("Frame", {Size=UDim2.new(0,8,0,8), Position=UDim2.new(0,-4,1,-4), BackgroundColor3=C.green, ZIndex=65, Parent=ceCanvas})
+    if startDot then SAP.Corner(startDot,4) table.insert(SAP.cePts, startDot) end
+    local endDot = New("Frame", {Size=UDim2.new(0,8,0,8), Position=UDim2.new(1,-4,0,-4), BackgroundColor3=C.red, ZIndex=65, Parent=ceCanvas})
+    if endDot then SAP.Corner(endDot,4) table.insert(SAP.cePts, endDot) end
+end
+
+-- Preset buttons row 1: Interpolation
+local ceR1 = New("Frame", {Size=UDim2.new(0.95,0,0,24), Position=UDim2.new(0.025,0,0,270), BackgroundTransparency=1, ZIndex=61, Parent=CE})
+New("UIListLayout", {FillDirection=Enum.FillDirection.Horizontal, Padding=UDim.new(0,3), VerticalAlignment=Enum.VerticalAlignment.Center, Parent=ceR1})
+for _,m in ipairs({"Linear","Cubic","Quad","Sine","Bounce","Elastic","Back","Expo","Quart","Quint","Circ"}) do
+    local mb = New("TextButton", {Size=UDim2.new(0,40,0,20), BackgroundColor3=C.bg3, Text=m, TextColor3=C.text, TextSize=7, Font=Enum.Font.GothamBold, ZIndex=62, Parent=ceR1})
+    SAP.Corner(mb,4)
+    mb.MouseButton1Click:Connect(function()
+        E.interpMode=m SAP.ipBtn.Text=m SAP.drawCurve()
+        for _,ch in ipairs(ceR1:GetChildren()) do if ch:IsA("TextButton") then ch.BackgroundColor3=C.bg3 end end
+        mb.BackgroundColor3=C.blue
+    end)
+end
+
+-- Preset buttons row 2: Direction
+local ceR2 = New("Frame", {Size=UDim2.new(0.95,0,0,24), Position=UDim2.new(0.025,0,0,298), BackgroundTransparency=1, ZIndex=61, Parent=CE})
+New("UIListLayout", {FillDirection=Enum.FillDirection.Horizontal, Padding=UDim.new(0,4), VerticalAlignment=Enum.VerticalAlignment.Center, Parent=ceR2})
+for _,d in ipairs({"In","Out","InOut"}) do
+    local db = New("TextButton", {Size=UDim2.new(0,50,0,20), BackgroundColor3=C.bg3, Text="Ease "..d, TextColor3=C.text, TextSize=8, Font=Enum.Font.GothamBold, ZIndex=62, Parent=ceR2})
+    SAP.Corner(db,4)
+    db.MouseButton1Click:Connect(function()
+        E.easingDir=d SAP.edBtn.Text=d SAP.drawCurve()
+        for _,ch in ipairs(ceR2:GetChildren()) do if ch:IsA("TextButton") then ch.BackgroundColor3=C.bg3 end end
+        db.BackgroundColor3=C.purple
+    end)
+end
+
+-- Apply to all KFs button
+local ceApply = New("TextButton", {Size=UDim2.new(0,130,0,20), Position=UDim2.new(0,200,0,0), BackgroundColor3=C.green, Text="Apply to All KFs", TextColor3=C.white, TextSize=8, Font=Enum.Font.GothamBold, ZIndex=62, Parent=ceR2})
+SAP.Corner(ceApply,4)
+ceApply.MouseButton1Click:Connect(function()
+    E.pushUndo()
+    for _,kf in ipairs(E.kfs) do
+        for _,d in pairs(kf.j) do d.es=E.interpMode d.ed=E.easingDir end
+    end
+    ceApply.Text="✅ Applied!" spawn(function() wait(1) pcall(function() ceApply.Text="Apply to All KFs" end) end)
+end)
+
+-- Drag CE
+local ced,ceds,cedp=false,nil,nil
+ceH.InputBegan:Connect(function(i)
+    if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+        ced=true ceds=i.Position cedp=CE.Position
+        i.Changed:Connect(function() if i.UserInputState==Enum.UserInputState.End then ced=false end end)
+    end
+end)
+SAP.UIS.InputChanged:Connect(function(i)
+    if ced and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
+        pcall(function() local d=i.Position-ceds CE.Position=UDim2.new(cedp.X.Scale,cedp.X.Offset+d.X,cedp.Y.Scale,cedp.Y.Offset+d.Y) end)
+    end
+end)
+
+-- Auto update curve
+spawn(function() while SAP.SG and SAP.SG.Parent do if CE.Visible then pcall(SAP.drawCurve) end wait(0.3) end end)
+
+print("[SAP] Part 5 OK - Tween & Curve Editor")
+
+--[[
+    Snow Animator Pro v3 - PARTE 6/7
+    SAVE & EXPORT MENUS
+]]
+local SAP = _G.SAP
+local E = SAP.E
+local C = SAP.C
+local New = SAP.New
+
+-- SAVE MENU
+local SM = New("Frame", {Name="SaveMenu", Size=UDim2.new(0,340,0,440), Position=UDim2.new(0.5,-170,0.5,-220), BackgroundColor3=C.bg, Visible=false, ZIndex=50, Parent=SAP.SG})
+SAP.Corner(SM,12) SAP.Stroke(SM, C.green, 2)
+New("TextLabel", {Size=UDim2.new(1,0,0,28), BackgroundTransparency=1, Text="💾 Save / Load Animations", TextColor3=C.white, TextSize=14, Font=Enum.Font.GothamBold, ZIndex=51, Parent=SM})
+local smC = New("TextButton", {Size=UDim2.new(0,20,0,20), Position=UDim2.new(1,-24,0,4), BackgroundColor3=C.red, Text="✕", TextColor3=C.white, TextSize=9, Font=Enum.Font.GothamBold, ZIndex=52, Parent=SM})
+SAP.Corner(smC,4) smC.MouseButton1Click:Connect(function() SM.Visible=false end)
+
+local ssc = New("ScrollingFrame", {Size=UDim2.new(0.92,0,0,395), Position=UDim2.new(0.04,0,0,32), BackgroundTransparency=1, ScrollBarThickness=3, CanvasSize=UDim2.new(0,0,0,740), ZIndex=51, Parent=SM})
+pcall(function() ssc.ElasticBehavior=Enum.ElasticBehavior.Never end)
+New("UIListLayout", {Padding=UDim.new(0,4), Parent=ssc})
+
+for i=1,10 do
+    local sf = New("Frame", {Size=UDim2.new(1,-4,0,66), BackgroundColor3=C.bg2, ZIndex=52, Parent=ssc})
+    SAP.Corner(sf,6)
+    New("TextLabel", {Size=UDim2.new(0,18,0,14), Position=UDim2.new(0,4,0,2), BackgroundTransparency=1, Text="#"..i, TextColor3=C.cyan, TextSize=9, Font=Enum.Font.GothamBold, ZIndex=53, Parent=sf})
+    local nb = New("TextBox", {Size=UDim2.new(0.55,0,0,16), Position=UDim2.new(0,24,0,2), BackgroundColor3=C.bg, Text=(E.saves[i] and E.saves[i].name) or "", PlaceholderText="Name...", TextColor3=C.text, TextSize=8, Font=Enum.Font.Gotham, ClearTextOnFocus=false, ZIndex=53, Parent=sf})
+    SAP.Corner(nb,3)
+    local stL = New("TextLabel", {Size=UDim2.new(0.4,0,0,10), Position=UDim2.new(0,24,0,20), BackgroundTransparency=1, Text=E.saves[i] and "✅" or "⬜", TextColor3=E.saves[i] and C.green or C.dim, TextSize=8, Font=Enum.Font.Gotham, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=53, Parent=sf})
+    local svB = New("TextButton", {Size=UDim2.new(0,68,0,18), Position=UDim2.new(0,4,0,38), BackgroundColor3=C.green, Text="Save Anim", TextColor3=C.white, TextSize=8, Font=Enum.Font.GothamBold, ZIndex=53, Parent=sf})
+    SAP.Corner(svB,4)
+    local dlB = New("TextButton", {Size=UDim2.new(0,68,0,18), Position=UDim2.new(0,76,0,38), BackgroundColor3=C.red, Text="Delete Anim", TextColor3=C.white, TextSize=8, Font=Enum.Font.GothamBold, ZIndex=53, Parent=sf})
+    SAP.Corner(dlB,4)
+    local ldB = New("TextButton", {Size=UDim2.new(0,48,0,18), Position=UDim2.new(0,148,0,38), BackgroundColor3=C.blue, Text="Load", TextColor3=C.white, TextSize=8, Font=Enum.Font.GothamBold, ZIndex=53, Parent=sf})
+    SAP.Corner(ldB,4)
+    local si=i
+    svB.MouseButton1Click:Connect(function()
+        local n=nb.Text~="" and nb.Text or ("Anim_"..si)
+        E.saveSlot(si,n) nb.Text=n stL.Text="✅" stL.TextColor3=C.green
+    end)
+    dlB.MouseButton1Click:Connect(function() E.deleteSlot(si) nb.Text="" stL.Text="⬜" stL.TextColor3=C.dim end)
+    ldB.MouseButton1Click:Connect(function() E.loadSlot(si) end)
+end
+
+-- EXPORT MENU
+local EM = New("Frame", {Name="ExportMenu", Size=UDim2.new(0,360,0,300), Position=UDim2.new(0.5,-180,0.5,-150), BackgroundColor3=C.bg, Visible=false, ZIndex=50, Parent=SAP.SG})
+SAP.Corner(EM,12) SAP.Stroke(EM, C.cyan, 2)
+New("TextLabel", {Size=UDim2.new(1,0,0,28), BackgroundTransparency=1, Text="📤 Export Animation", TextColor3=C.white, TextSize=14, Font=Enum.Font.GothamBold, ZIndex=51, Parent=EM})
+local emC = New("TextButton", {Size=UDim2.new(0,20,0,20), Position=UDim2.new(1,-24,0,4), BackgroundColor3=C.red, Text="✕", TextColor3=C.white, TextSize=9, Font=Enum.Font.GothamBold, ZIndex=52, Parent=EM})
+SAP.Corner(emC,4) emC.MouseButton1Click:Connect(function() EM.Visible=false end)
+
+local esB = New("TextButton", {Size=UDim2.new(0.9,0,0,34), Position=UDim2.new(0.05,0,0,34), BackgroundColor3=C.blue, Text="📜 Export via Script (copy code)", TextColor3=C.white, TextSize=11, Font=Enum.Font.GothamBold, ZIndex=52, Parent=EM})
+SAP.Corner(esB,6)
+local sOut = New("TextBox", {Size=UDim2.new(0.9,0,0,120), Position=UDim2.new(0.05,0,0,130), BackgroundColor3=Color3.fromRGB(8,10,16), Text="", PlaceholderText="Code appears here...", TextColor3=Color3.fromRGB(130,255,130), TextSize=7, Font=Enum.Font.Code, TextXAlignment=Enum.TextXAlignment.Left, TextYAlignment=Enum.TextYAlignment.Top, MultiLine=true, ClearTextOnFocus=false, TextWrapped=true, Visible=false, ZIndex=52, Parent=EM})
+SAP.Corner(sOut,4)
+esB.MouseButton1Click:Connect(function() sOut.Text=E.genScript() sOut.Visible=true end)
+
+local eiB = New("TextButton", {Size=UDim2.new(0.9,0,0,34), Position=UDim2.new(0.05,0,0,74), BackgroundColor3=C.purple, Text="🆔 Export to ReplicatedStorage", TextColor3=C.white, TextSize=11, Font=Enum.Font.GothamBold, ZIndex=52, Parent=EM})
+SAP.Corner(eiB,6)
+local etF = New("Frame", {Size=UDim2.new(0.9,0,0,30), Position=UDim2.new(0.05,0,0,114), BackgroundTransparency=1, Visible=false, ZIndex=52, Parent=EM})
+New("UIListLayout", {FillDirection=Enum.FillDirection.Horizontal, Padding=UDim.new(0,4), Parent=etF})
+for _,t in ipairs({"NPC","Player","Tool","Gui"}) do
+    local eb = New("TextButton", {Size=UDim2.new(0,65,0,24), BackgroundColor3=C.bg3, Text=t, TextColor3=C.text, TextSize=10, Font=Enum.Font.GothamBold, ZIndex=53, Parent=etF})
+    SAP.Corner(eb,4)
+    eb.MouseButton1Click:Connect(function()
+        local fn=E.exportRS(t) sOut.Text="✅ '"..fn.."' exported! Type: "..t sOut.Visible=true
+        eb.BackgroundColor3=C.green spawn(function() wait(1) pcall(function() eb.BackgroundColor3=C.bg3 end) end)
+    end)
+end
+eiB.MouseButton1Click:Connect(function() etF.Visible=not etF.Visible sOut.Visible=false end)
+
+print("[SAP] Part 6 OK - Save & Export")
+
+--[[
+    Snow Animator Pro v3 - PARTE 7/7
+    UPDATE LOOP, SHORTCUTS, MOBILE, AUTOKEY
+]]
+local SAP = _G.SAP
+local E = SAP.E
+local C = SAP.C
+local New = SAP.New
+
+-- MAIN UPDATE LOOP
+local uc = 0
+SAP.RS.RenderStepped:Connect(function(dt)
+    uc = uc + 1
+    if uc % 2 == 0 then
+        pcall(SAP.updateTL)
+        pcall(function() SAP.spdL.Text=string.format("%.1fx",E.speed) end)
+        pcall(function() if not E.playing then SAP.playBtn.Text="▶" SAP.playBtn.BackgroundColor3=C.green end end)
+        pcall(function() SAP.fpsL.Text=tostring(math.floor(1/dt)) end)
     end
 end)
 
 -- AUTO KEY
-lastStates={}
+local lastSt = {}
 spawn(function()
-    while SG and SG.Parent do
-        if Eng.AutoKey and #Eng.AllJoints>0 then
-            local changed=false
-            for _,j in ipairs(Eng.AllJoints) do pcall(function()
-                local k=j.Name
-                if j.Type=="Motor6D" and j.Inst and j.Inst.Parent then
-                    local c=j.Inst.C0 if lastStates[k] and lastStates[k]~=c then changed=true end lastStates[k]=c
-                elseif j.Type=="Part" and j.Inst and j.Inst.Parent then
-                    local c=j.Inst.CFrame if lastStates[k] and lastStates[k]~=c then changed=true end lastStates[k]=c
-                end
-            end) end
-            if changed then Eng:AddKeyframe() end
+    while SAP.SG and SAP.SG.Parent do
+        if E.autoKey and #E.joints>0 and not E.playing then
+            local changed = false
+            for _,j in ipairs(E.joints) do
+                pcall(function()
+                    if j.t=="m6d" and j.inst and j.inst.Parent then
+                        local c=tostring(j.inst.C0)
+                        if lastSt[j.name] and lastSt[j.name]~=c then changed=true end
+                        lastSt[j.name]=c
+                    elseif j.t=="part" and j.inst and j.inst.Parent then
+                        local c=tostring(j.inst.CFrame)
+                        if lastSt[j.name] and lastSt[j.name]~=c then changed=true end
+                        lastSt[j.name]=c
+                    end
+                end)
+            end
+            if changed then E.addKF() end
         end
-        wait(0.15)
+        wait(0.2)
     end
 end)
 
-spawn(function() local lt=nil while SG and SG.Parent do if Eng.Target~=lt then lt=Eng.Target pcall(function() UpdateJL() end) end wait(0.4) end end)
-
--- DRAG ANIMATOR
-ad=false adi=nil ads=nil asp=nil
-AH.InputBegan:Connect(function(inp)
-    if inp.UserInputType==Enum.UserInputType.MouseButton1 or inp.UserInputType==Enum.UserInputType.Touch then
-        ad=true ads=inp.Position asp=AF.Position
-        inp.Changed:Connect(function() if inp.UserInputState==Enum.UserInputState.End then ad=false end end)
+-- UPDATE JOINT LIST WHEN TARGET CHANGES
+spawn(function()
+    local lt=nil
+    while SAP.SG and SAP.SG.Parent do
+        if E.target~=lt then lt=E.target pcall(SAP.updateJoints) end
+        wait(0.4)
     end
 end)
-UserInputService.InputChanged:Connect(function(inp)
-    if ad and (inp.UserInputType==Enum.UserInputType.MouseMovement or inp.UserInputType==Enum.UserInputType.Touch) then
-        pcall(function() local d=inp.Position-ads AF.Position=UDim2.new(asp.X.Scale,asp.X.Offset+d.X,asp.Y.Scale,asp.Y.Offset+d.Y) end)
-    end
-end)
-print("P6 OK")
-
---[[
-    Snow Hub Studios - PARTE 7/7
-    Menus, Shortcuts & Mobile
-]]
-
--- SAVE MENU
-SM = UI.Create("Frame", {Name="SaveM", Size=UDim2.new(0,360,0,460), Position=UDim2.new(0.5,-180,0.5,-230), BackgroundColor3=T.BG, Visible=false, ZIndex=50, Parent=SG})
-UI.Corner(SM, 12) UI.Stroke(SM, T.PR, 2)
-UI.Create("TextLabel", {Size=UDim2.new(1,0,0,32), BackgroundTransparency=1, Text="💾 Save Animations", TextColor3=T.SN, TextSize=15, Font=Enum.Font.GothamBold, ZIndex=51, Parent=SM})
-csm = UI.Create("TextButton", {Size=UDim2.new(0,22,0,22), Position=UDim2.new(1,-28,0,5), BackgroundColor3=T.DN, Text="✕", TextColor3=Color3.new(1,1,1), TextSize=10, Font=Enum.Font.GothamBold, ZIndex=52, Parent=SM})
-UI.Corner(csm, 5) csm.MouseButton1Click:Connect(function() SM.Visible=false end)
-SSc = UI.Create("ScrollingFrame", {Size=UDim2.new(0.92,0,0,410), Position=UDim2.new(0.04,0,0,36), BackgroundTransparency=1, ScrollBarThickness=3, CanvasSize=UDim2.new(0,0,0,780), ZIndex=51, Parent=SM})
-pcall(function() SSc.ElasticBehavior=Enum.ElasticBehavior.Never end)
-UI.Create("UIListLayout", {Padding=UDim.new(0,4), Parent=SSc})
-
-for i=1,10 do
-    local sf = UI.Create("Frame", {Size=UDim2.new(1,-4,0,70), BackgroundColor3=T.SF, ZIndex=52, Parent=SSc})
-    UI.Corner(sf, 6)
-    UI.Create("TextLabel", {Size=UDim2.new(0,20,0,14), Position=UDim2.new(0,5,0,3), BackgroundTransparency=1, Text="#"..i, TextColor3=T.AC, TextSize=10, Font=Enum.Font.GothamBold, ZIndex=53, Parent=sf})
-    local nb = UI.Create("TextBox", {Size=UDim2.new(0.55,0,0,18), Position=UDim2.new(0,28,0,2), BackgroundColor3=Color3.fromRGB(15,17,25), Text=saveSystem.Slots[i].Name or "", PlaceholderText="Name...", TextColor3=T.TX, TextSize=9, Font=Enum.Font.Gotham, ClearTextOnFocus=false, ZIndex=53, Parent=sf})
-    UI.Corner(nb, 4)
-    local stL = UI.Create("TextLabel", {Size=UDim2.new(0.4,0,0,12), Position=UDim2.new(0,28,0,22), BackgroundTransparency=1, Text=saveSystem.Slots[i].Exists and "✅Saved" or "⬜Empty", TextColor3=saveSystem.Slots[i].Exists and T.OK or T.TD, TextSize=8, Font=Enum.Font.Gotham, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=53, Parent=sf})
-    local svB = UI.Create("TextButton", {Size=UDim2.new(0,72,0,20), Position=UDim2.new(0,5,0,42), BackgroundColor3=T.OK, Text="Save Anim", TextColor3=Color3.new(1,1,1), TextSize=9, Font=Enum.Font.GothamBold, ZIndex=53, Parent=sf})
-    UI.Corner(svB, 5)
-    local dlB = UI.Create("TextButton", {Size=UDim2.new(0,72,0,20), Position=UDim2.new(0,82,0,42), BackgroundColor3=T.DN, Text="Delete Anim", TextColor3=Color3.new(1,1,1), TextSize=9, Font=Enum.Font.GothamBold, ZIndex=53, Parent=sf})
-    UI.Corner(dlB, 5)
-    local ldB = UI.Create("TextButton", {Size=UDim2.new(0,58,0,20), Position=UDim2.new(0,159,0,42), BackgroundColor3=T.PR, Text="Load", TextColor3=Color3.new(1,1,1), TextSize=9, Font=Enum.Font.GothamBold, ZIndex=53, Parent=sf})
-    UI.Corner(ldB, 5)
-    local si=i
-    svB.MouseButton1Click:Connect(function() local n=nb.Text~="" and nb.Text or ("Anim_"..si) saveSystem:SaveSlot(si,n,Eng:Serialize()) stL.Text="✅Saved" stL.TextColor3=T.OK nb.Text=n end)
-    dlB.MouseButton1Click:Connect(function() saveSystem:DeleteSlot(si) stL.Text="⬜Empty" stL.TextColor3=T.TD nb.Text="" end)
-    ldB.MouseButton1Click:Connect(function() local sl=saveSystem:GetSlot(si) if sl.Exists and sl.Data then Eng:Deserialize(sl.Data) end end)
-end
-
--- EXPORT MENU
-EM = UI.Create("Frame", {Name="ExpM", Size=UDim2.new(0,380,0,330), Position=UDim2.new(0.5,-190,0.5,-165), BackgroundColor3=T.BG, Visible=false, ZIndex=50, Parent=SG})
-UI.Corner(EM, 12) UI.Stroke(EM, T.AC, 2)
-UI.Create("TextLabel", {Size=UDim2.new(1,0,0,32), BackgroundTransparency=1, Text="📤 Export Animation", TextColor3=T.SN, TextSize=15, Font=Enum.Font.GothamBold, ZIndex=51, Parent=EM})
-cem = UI.Create("TextButton", {Size=UDim2.new(0,22,0,22), Position=UDim2.new(1,-28,0,5), BackgroundColor3=T.DN, Text="✕", TextColor3=Color3.new(1,1,1), TextSize=10, Font=Enum.Font.GothamBold, ZIndex=52, Parent=EM})
-UI.Corner(cem, 5) cem.MouseButton1Click:Connect(function() EM.Visible=false end)
-
-esBtn = UI.Create("TextButton", {Size=UDim2.new(0.9,0,0,38), Position=UDim2.new(0.05,0,0,38), BackgroundColor3=T.PR, Text="📜 Export via Script", TextColor3=Color3.new(1,1,1), TextSize=13, Font=Enum.Font.GothamBold, ZIndex=52, Parent=EM})
-UI.Corner(esBtn, 7)
-sOut = UI.Create("TextBox", {Size=UDim2.new(0.9,0,0,130), Position=UDim2.new(0.05,0,0,145), BackgroundColor3=Color3.fromRGB(10,12,18), Text="", PlaceholderText="Script here...", TextColor3=Color3.fromRGB(150,255,150), TextSize=7, Font=Enum.Font.Code, TextXAlignment=Enum.TextXAlignment.Left, TextYAlignment=Enum.TextYAlignment.Top, MultiLine=true, ClearTextOnFocus=false, TextWrapped=true, Visible=false, ZIndex=52, Parent=EM})
-UI.Corner(sOut, 5)
-esBtn.MouseButton1Click:Connect(function() sOut.Text=Eng:GenExportScript() sOut.Visible=true end)
-
-eiBtn = UI.Create("TextButton", {Size=UDim2.new(0.9,0,0,38), Position=UDim2.new(0.05,0,0,82), BackgroundColor3=T.PU, Text="🆔 Export via ID (ReplicatedStorage)", TextColor3=Color3.new(1,1,1), TextSize=11, Font=Enum.Font.GothamBold, ZIndex=52, Parent=EM})
-UI.Corner(eiBtn, 7)
-etF = UI.Create("Frame", {Size=UDim2.new(0.9,0,0,34), Position=UDim2.new(0.05,0,0,126), BackgroundTransparency=1, Visible=false, ZIndex=52, Parent=EM})
-UI.Create("UIListLayout", {FillDirection=Enum.FillDirection.Horizontal, Padding=UDim.new(0,5), Parent=etF})
-for _,et in ipairs({"NPC","Player","Tool","Gui"}) do
-    local eb = UI.Create("TextButton", {Size=UDim2.new(0,70,0,28), BackgroundColor3=T.SF, Text=et, TextColor3=T.TX, TextSize=11, Font=Enum.Font.GothamBold, ZIndex=53, Parent=etF})
-    UI.Corner(eb, 5)
-    eb.MouseButton1Click:Connect(function()
-        local fn=Eng:ExportToRS(et) sOut.Text="✅ '"..fn.."' exported! Type: "..et sOut.Visible=true
-        eb.BackgroundColor3=T.OK spawn(function() wait(0.8) pcall(function() eb.BackgroundColor3=T.SF end) end)
-    end)
-end
-eiBtn.MouseButton1Click:Connect(function() etF.Visible=not etF.Visible sOut.Visible=false end)
-
--- CURVE EDITOR
-CE = UI.Create("Frame", {Name="CurveEd", Size=UDim2.new(0,460,0,300), Position=UDim2.new(0.5,-230,0.1,0), BackgroundColor3=T.BG, Visible=false, ZIndex=60, Parent=SG})
-UI.Corner(CE, 12) UI.Stroke(CE, T.CY, 2)
-UI.Create("TextLabel", {Size=UDim2.new(1,0,0,28), BackgroundColor3=Color3.fromRGB(18,20,30), Text="🖋️ Curve Editor", TextColor3=T.SN, TextSize=12, Font=Enum.Font.GothamBold, ZIndex=61, Parent=CE})
-cce = UI.Create("TextButton", {Size=UDim2.new(0,20,0,20), Position=UDim2.new(1,-24,0,4), BackgroundColor3=T.DN, Text="✕", TextColor3=Color3.new(1,1,1), TextSize=9, Font=Enum.Font.GothamBold, ZIndex=62, Parent=CE})
-UI.Corner(cce, 4) cce.MouseButton1Click:Connect(function() CE.Visible=false end)
-CC = UI.Create("Frame", {Size=UDim2.new(0.94,0,0,220), Position=UDim2.new(0.03,0,0,34), BackgroundColor3=Color3.fromRGB(12,14,22), ZIndex=61, Parent=CE})
-UI.Corner(CC, 5)
-for i=0,10 do
-    UI.Create("Frame", {Size=UDim2.new(0,1,1,0), Position=UDim2.new(i/10,0,0,0), BackgroundColor3=Color3.fromRGB(30,33,45), BackgroundTransparency=0.5, BorderSizePixel=0, ZIndex=62, Parent=CC})
-    UI.Create("Frame", {Size=UDim2.new(1,0,0,1), Position=UDim2.new(0,0,i/10,0), BackgroundColor3=Color3.fromRGB(30,33,45), BackgroundTransparency=0.5, BorderSizePixel=0, ZIndex=62, Parent=CC})
-end
-cPts={}
-function DrawCurve()
-    for _,p in ipairs(cPts) do pcall(function() if p and p.Parent then p:Destroy() end end) end
-    cPts={}
-    for i=0,60 do
-        local t=i/60 local et=Eng:ApplyEasing(t,Eng.InterpMode,Eng.EasingDir)
-        local dot = UI.Create("Frame", {Size=UDim2.new(0,3,0,3), Position=UDim2.new(t,-1,1-et,-1), BackgroundColor3=T.AC, BorderSizePixel=0, ZIndex=63, Parent=CC})
-        if dot then UI.Corner(dot, 2) table.insert(cPts, dot) end
-    end
-end
-ceC = UI.Create("Frame", {Size=UDim2.new(0.94,0,0,26), Position=UDim2.new(0.03,0,1,-30), BackgroundTransparency=1, ZIndex=61, Parent=CE})
-UI.Create("UIListLayout", {FillDirection=Enum.FillDirection.Horizontal, Padding=UDim.new(0,3), VerticalAlignment=Enum.VerticalAlignment.Center, Parent=ceC})
-for _,m in ipairs({"Linear","Cubic","Bounce","Elastic","Back","Sine","Quad"}) do
-    local mb = UI.Create("TextButton", {Size=UDim2.new(0,50,0,20), BackgroundColor3=T.SF, Text=m, TextColor3=T.TX, TextSize=8, Font=Enum.Font.GothamBold, ZIndex=62, Parent=ceC})
-    if mb then UI.Corner(mb, 4)
-        mb.MouseButton1Click:Connect(function()
-            Eng.InterpMode=m ipBtn.Text=m DrawCurve()
-            for _,ch in ipairs(ceC:GetChildren()) do if ch:IsA("TextButton") then ch.BackgroundColor3=T.SF end end
-            mb.BackgroundColor3=T.PR
-        end)
-    end
-end
-spawn(function() while SG and SG.Parent do if CE.Visible then pcall(function() DrawCurve() end) end wait(0.5) end end)
-
--- EDIT MENU
-EDM = UI.Create("Frame", {Name="EditM", Size=UDim2.new(0,240,0,240), Position=UDim2.new(0,270,0.5,-120), BackgroundColor3=T.BG, Visible=false, ZIndex=55, Parent=SG})
-UI.Corner(EDM, 10) UI.Stroke(EDM, T.PR, 1)
-UI.Create("TextLabel", {Size=UDim2.new(1,0,0,26), BackgroundColor3=Color3.fromRGB(18,20,30), Text="📝 Edit", TextColor3=T.SN, TextSize=12, Font=Enum.Font.GothamBold, ZIndex=56, Parent=EDM})
-cedm = UI.Create("TextButton", {Size=UDim2.new(0,18,0,18), Position=UDim2.new(1,-22,0,4), BackgroundColor3=T.DN, Text="✕", TextColor3=Color3.new(1,1,1), TextSize=9, Font=Enum.Font.GothamBold, ZIndex=57, Parent=EDM})
-UI.Corner(cedm, 4) cedm.MouseButton1Click:Connect(function() EDM.Visible=false end)
-edSc = UI.Create("ScrollingFrame", {Size=UDim2.new(0.9,0,0,195), Position=UDim2.new(0.05,0,0,32), BackgroundTransparency=1, ScrollBarThickness=2, CanvasSize=UDim2.new(0,0,0,200), ZIndex=56, Parent=EDM})
-UI.Create("UIListLayout", {Padding=UDim.new(0,3), Parent=edSc})
-function EditRow(lbl,val,ord,cb)
-    local r = UI.Create("Frame", {Size=UDim2.new(1,0,0,24), BackgroundColor3=T.SF, LayoutOrder=ord, ZIndex=57, Parent=edSc})
-    UI.Corner(r, 4)
-    UI.Create("TextLabel", {Size=UDim2.new(0.45,0,1,0), BackgroundTransparency=1, Text="  "..lbl, TextColor3=T.TX, TextSize=9, Font=Enum.Font.Gotham, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=58, Parent=r})
-    local vb = UI.Create("TextBox", {Size=UDim2.new(0.45,0,0,16), Position=UDim2.new(0.5,0,0,4), BackgroundColor3=Color3.fromRGB(15,17,25), Text=val, TextColor3=T.AC, TextSize=9, Font=Enum.Font.Code, ClearTextOnFocus=false, ZIndex=58, Parent=r})
-    UI.Corner(vb, 3)
-    if vb then vb.FocusLost:Connect(function() if cb then cb(vb.Text) end end) end
-end
-EditRow("Speed",tostring(Eng.Speed),1,function(v) local n=tonumber(v) if n then Eng.Speed=math.clamp(n,0.01,20) end end)
-EditRow("FPS",tostring(Eng.FPS),2,function(v) local n=tonumber(v) if n then Eng.FPS=math.clamp(n,1,120) end end)
-EditRow("GridSize",tostring(Eng.GridSize),3,function(v) local n=tonumber(v) if n then Eng.GridSize=math.clamp(n,0.01,10) end end)
-EditRow("MirrorAxis",Eng.MirrorAxis,4,function(v) if v=="X" or v=="Y" or v=="Z" then Eng.MirrorAxis=v end end)
-editBtn.MouseButton1Click:Connect(function() EDM.Visible=not EDM.Visible end)
-
--- SETTINGS MENU
-STM = UI.Create("Frame", {Name="SetM", Size=UDim2.new(0,240,0,180), Position=UDim2.new(0,340,0.5,-90), BackgroundColor3=T.BG, Visible=false, ZIndex=55, Parent=SG})
-UI.Corner(STM, 10) UI.Stroke(STM, T.WN, 1)
-UI.Create("TextLabel", {Size=UDim2.new(1,0,0,26), BackgroundColor3=Color3.fromRGB(18,20,30), Text="⚙️ Settings", TextColor3=T.SN, TextSize=12, Font=Enum.Font.GothamBold, ZIndex=56, Parent=STM})
-cstm = UI.Create("TextButton", {Size=UDim2.new(0,18,0,18), Position=UDim2.new(1,-22,0,4), BackgroundColor3=T.DN, Text="✕", TextColor3=Color3.new(1,1,1), TextSize=9, Font=Enum.Font.GothamBold, ZIndex=57, Parent=STM})
-UI.Corner(cstm, 4) cstm.MouseButton1Click:Connect(function() STM.Visible=false end)
-vmSBtn = UI.Create("TextButton", {Size=UDim2.new(0.8,0,0,28), Position=UDim2.new(0.1,0,0,36), BackgroundColor3=T.OK, Text="Global🌎", TextColor3=Color3.new(1,1,1), TextSize=12, Font=Enum.Font.GothamBold, ZIndex=57, Parent=STM})
-UI.Corner(vmSBtn, 6)
-vmSBtn.MouseButton1Click:Connect(function()
-    if Eng.ViewMode=="Global" then Eng.ViewMode="Local" vmSBtn.Text="Local📍" vmSBtn.BackgroundColor3=T.WN vmBtn.Text="Local📍" vmBtn.BackgroundColor3=T.WN
-    else Eng.ViewMode="Global" vmSBtn.Text="Global🌎" vmSBtn.BackgroundColor3=T.OK vmBtn.Text="Global🌎" vmBtn.BackgroundColor3=T.OK end
-end)
-UI.Create("TextLabel", {Size=UDim2.new(0.8,0,0,40), Position=UDim2.new(0.1,0,0,75), BackgroundTransparency=1, Text="60FPS • Global/Local toggle\nUse Studio Lite gizmos\nto manipulate joints", TextColor3=T.TD, TextSize=9, Font=Enum.Font.Gotham, TextWrapped=true, ZIndex=56, Parent=STM})
-settBtn.MouseButton1Click:Connect(function() STM.Visible=not STM.Visible end)
 
 -- KEYBOARD SHORTCUTS
-UserInputService.InputBegan:Connect(function(inp,gp)
+SAP.UIS.InputBegan:Connect(function(inp,gp)
     if gp then return end
-    local kc=inp.KeyCode
-    if kc==Enum.KeyCode.Space then if Eng.IsPlaying then Eng:Pause() else Eng:Play() end
-    elseif kc==Enum.KeyCode.K then Eng:AddKeyframe()
-    elseif kc==Enum.KeyCode.Z and UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
-        if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then Eng:Redo() else Eng:Undo() end
-    elseif kc==Enum.KeyCode.C and UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then Eng:CopyKF()
-    elseif kc==Enum.KeyCode.V and UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then Eng:PasteKF()
-    elseif kc==Enum.KeyCode.Delete then Eng:RemoveKFAt(Eng.CurrentTime)
-    elseif kc==Enum.KeyCode.Left then Eng.CurrentTime=math.max(0,Eng.CurrentTime-1/Eng.FPS) Eng:GoTo(Eng.CurrentTime)
-    elseif kc==Enum.KeyCode.Right then Eng.CurrentTime=Eng.CurrentTime+1/Eng.FPS Eng:GoTo(Eng.CurrentTime)
-    elseif kc==Enum.KeyCode.Home then Eng:GoTo(0)
-    elseif kc==Enum.KeyCode.End then Eng:GoTo(Eng:GetMaxTime()) end
+    local k=inp.KeyCode
+    if k==Enum.KeyCode.Space then
+        if E.tweenMode then
+            if E.playing then E.stop() else E.tweenPlay() end
+        else
+            if E.playing then E.pause() else E.play() end
+        end
+    elseif k==Enum.KeyCode.K then E.addKF()
+    elseif k==Enum.KeyCode.Z and SAP.UIS:IsKeyDown(Enum.KeyCode.LeftControl) then
+        if SAP.UIS:IsKeyDown(Enum.KeyCode.LeftShift) then E.redo() E.goTo(E.time) else E.undo() E.goTo(E.time) end
+    elseif k==Enum.KeyCode.C and SAP.UIS:IsKeyDown(Enum.KeyCode.LeftControl) then E.copyKF()
+    elseif k==Enum.KeyCode.V and SAP.UIS:IsKeyDown(Enum.KeyCode.LeftControl) then E.pasteKF()
+    elseif k==Enum.KeyCode.Delete then E.removeKF()
+    elseif k==Enum.KeyCode.Left then E.time=math.max(0,E.time-1/E.fps) E.goTo(E.time)
+    elseif k==Enum.KeyCode.Right then E.time=E.time+1/E.fps E.goTo(E.time)
+    elseif k==Enum.KeyCode.Home then E.goTo(0)
+    elseif k==Enum.KeyCode.End then E.goTo(E.maxTime())
+    end
 end)
 
 -- MOBILE
-isMob = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
-if isMob then
+local mob = SAP.UIS.TouchEnabled and not SAP.UIS.KeyboardEnabled
+if mob then
     local ss=workspace.CurrentCamera.ViewportSize
-    pcall(function() Hub.Position=UDim2.new(0.5,-math.min(240,ss.X*0.45),0.05,0) Hub.Size=UDim2.new(0,math.min(480,ss.X*0.92),0,math.min(600,ss.Y*0.88)) end)
-    pcall(function() AF.Size=UDim2.new(1,0,0,math.min(350,ss.Y*0.5)) AF.Position=UDim2.new(0,0,1,-AF.Size.Y.Offset) end)
-    pcall(function() for _,d in ipairs(TBS:GetChildren()) do if d:IsA("TextButton") then d.Size=UDim2.new(0,math.max(d.Size.X.Offset,50),0,math.max(d.Size.Y.Offset,34)) end end end)
-    pcall(function() local tw=0 for _,ch in ipairs(TBS:GetChildren()) do if ch:IsA("TextButton") then tw=tw+ch.Size.X.Offset+3 end end TBS.CanvasSize=UDim2.new(0,tw+20,0,0) end)
-    for _,mn in ipairs({SM,EM,CE,EDM,STM}) do pcall(function() local mw=math.min(mn.Size.X.Offset,ss.X*0.95) local mh=math.min(mn.Size.Y.Offset,ss.Y*0.85) mn.Size=UDim2.new(0,mw,0,mh) mn.Position=UDim2.new(0.5,-mw/2,0.5,-mh/2) end) end
-
-    touchTL=false
-    TLS.InputBegan:Connect(function(inp) if inp.UserInputType==Enum.UserInputType.Touch then touchTL=true pcall(function() local rx=inp.Position.X-TLS.AbsolutePosition.X+TLS.CanvasPosition.X Eng.CurrentTime=math.max(0,rx/pps) Eng:GoTo(Eng.CurrentTime) end) end end)
-    TLS.InputChanged:Connect(function(inp) if touchTL and inp.UserInputType==Enum.UserInputType.Touch then pcall(function() local rx=inp.Position.X-TLS.AbsolutePosition.X+TLS.CanvasPosition.X Eng.CurrentTime=math.max(0,rx/pps) Eng:GoTo(Eng.CurrentTime) end) end end)
-    TLS.InputEnded:Connect(function(inp) if inp.UserInputType==Enum.UserInputType.Touch then touchTL=false end end)
-
-    fb = UI.Create("TextButton", {Size=UDim2.new(0,44,0,44), Position=UDim2.new(0,5,0.4,0), BackgroundColor3=T.PR, Text="❄️", TextSize=20, TextColor3=Color3.new(1,1,1), ZIndex=100, Parent=SG})
-    UI.Corner(fb, 22) UI.Stroke(fb, T.SN, 2)
-    fbd=false fbds=nil fbsp=nil fbtt=0
-    fb.InputBegan:Connect(function(inp)
-        if inp.UserInputType==Enum.UserInputType.Touch then
-            fbd=true fbds=inp.Position fbsp=fb.Position fbtt=tick()
-            inp.Changed:Connect(function()
-                if inp.UserInputState==Enum.UserInputState.End then
-                    fbd=false
-                    if tick()-fbtt<0.25 and (inp.Position-fbds).Magnitude<15 then
-                        if Hub.Visible then Hub.Visible=false
-                        elseif AF.Visible then AF.Visible=false Hub.Visible=true
-                        else Hub.Visible=true end
-                    end
-                end
-            end)
-        end
+    pcall(function()
+        SAP.AF.Size=UDim2.new(1,0,0,math.min(340,ss.Y*0.5))
+        SAP.AF.Position=UDim2.new(0,0,1,-SAP.AF.Size.Y.Offset)
     end)
-    UserInputService.InputChanged:Connect(function(inp) if fbd and inp.UserInputType==Enum.UserInputType.Touch then pcall(function() local d=inp.Position-fbds fb.Position=UDim2.new(fbsp.X.Scale,fbsp.X.Offset+d.X,fbsp.Y.Scale,fbsp.Y.Offset+d.Y) end) end end)
-
-    msb = UI.Create("Frame", {Size=UDim2.new(1,0,0,34), Position=UDim2.new(0,0,0,0), BackgroundColor3=Color3.fromRGB(12,14,22), BackgroundTransparency=0.3, Visible=false, ZIndex=90, Parent=SG})
-    UI.Create("UIListLayout", {FillDirection=Enum.FillDirection.Horizontal, HorizontalAlignment=Enum.HorizontalAlignment.Center, VerticalAlignment=Enum.VerticalAlignment.Center, Padding=UDim.new(0,3), Parent=msb})
-    for _,d in ipairs({{"⏮",function() Eng:GoTo(0) end},{"⏪",function() Eng.CurrentTime=math.max(0,Eng.CurrentTime-1/Eng.FPS) Eng:GoTo(Eng.CurrentTime) end},{"▶⏸",function() if Eng.IsPlaying then Eng:Pause() else Eng:Play() end end},{"⏩",function() Eng.CurrentTime=Eng.CurrentTime+1/Eng.FPS Eng:GoTo(Eng.CurrentTime) end},{"⏭",function() Eng:GoTo(Eng:GetMaxTime()) end},{"+KF",function() Eng:AddKeyframe() end},{"↩️",function() Eng:Undo() end},{"↪️",function() Eng:Redo() end}}) do
-        local mb = UI.Create("TextButton", {Size=UDim2.new(0,36,0,28), BackgroundColor3=T.SF, Text=d[1], TextColor3=T.TX, TextSize=11, Font=Enum.Font.GothamBold, ZIndex=91, Parent=msb})
-        if mb then UI.Corner(mb, 5) mb.MouseButton1Click:Connect(d[2]) end
+    pcall(function()
+        for _,d in ipairs(SAP.tbs:GetChildren()) do
+            if d:IsA("TextButton") then d.Size=UDim2.new(0,math.max(d.Size.X.Offset,48),0,math.max(d.Size.Y.Offset,32)) end
+        end
+        local tw=0 for _,ch in ipairs(SAP.tbs:GetChildren()) do if ch:IsA("TextButton") then tw=tw+ch.Size.X.Offset+2 end end
+        SAP.tbs.CanvasSize=UDim2.new(0,tw+10,0,0)
+    end)
+    for _,mn in ipairs(SAP.SG:GetChildren()) do
+        pcall(function()
+            if mn:IsA("Frame") and mn.Name~="AnimFrame" then
+                local mw=math.min(mn.Size.X.Offset,ss.X*0.95)
+                local mh=math.min(mn.Size.Y.Offset,ss.Y*0.85)
+                mn.Size=UDim2.new(0,mw,0,mh)
+                mn.Position=UDim2.new(0.5,-mw/2,0.5,-mh/2)
+            end
+        end)
     end
-    spawn(function() while SG and SG.Parent do pcall(function() msb.Visible=AF and AF.Visible or false end) wait(0.3) end end)
 end
 
-print("╔════════════════════════════════════╗")
-print("║  Snow Hub Studios❄️ Ready!         ║")
-print("║  Snow Animator Pro❄️ v2.0          ║")
-print("║  Space=Play K=Key Ctrl+Z=Undo     ║")
-print("╚════════════════════════════════════╝")
+-- SHOW ANIMATOR
+SAP.AF.Visible = true
+
+print("╔═══════════════════════════════════════╗")
+print("║  Snow Animator Pro❄️ v3 READY!        ║")
+print("║  Space=Play  K=Key  Ctrl+Z=Undo      ║")
+print("║  KF Mode + Tween Mode available      ║")
+print("║  Curve Editor with all easings        ║")
+print("╚═══════════════════════════════════════╝")
