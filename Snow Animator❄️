@@ -163,64 +163,68 @@ function E.isLocalChar(inst)
     return inst:IsDescendantOf(char)
 end
 
+-- Substitua a função E.scan por:
+
 function E.scan(tgt)
     E.joints = {}
     E.target = tgt
     if not tgt then return end
-    local mp = {}
-    -- Motor6D
-    pcall(function()
-        for _,c in ipairs(tgt:GetDescendants()) do
-            pcall(function()
-                if c:IsA("Motor6D") and c.Part0 and c.Part1 then
-                    table.insert(E.joints, {
-                        t="m6d", inst=c, name=c.Name,
-                        origC0=c.C0, origC1=c.C1
-                    })
-                    mp[c.Part1]=true
-                    mp[c.Part0]=true
-                end
-            end)
-        end
-    end)
-    -- Parts que NÃO são de Motor6D e NÃO são do char local
-    pcall(function()
-        for _,c in ipairs(tgt:GetDescendants()) do
-            pcall(function()
-                if c:IsA("BasePart") and not c:IsA("Terrain") and not mp[c] then
-                    if not E.isLocalChar(c) then
-                        table.insert(E.joints, {
-                            t="part", inst=c, name=c.Name.."_p",
-                            origCF=c.CFrame
-                        })
-                    end
-                end
-            end)
-        end
-    end)
-    -- Se target é part solta (não char)
-    pcall(function()
-        if tgt:IsA("BasePart") and not E.isLocalChar(tgt) then
-            local f=false
-            for _,j in ipairs(E.joints) do if j.inst==tgt then f=true break end end
-            if not f then
-                table.insert(E.joints, {t="part",inst=tgt,name=tgt.Name.."_p",origCF=tgt.CFrame})
+    
+    local motorParts = {}
+    
+    -- Primeiro: Motor6D (para rigs)
+    for _,c in ipairs(tgt:GetDescendants()) do
+        pcall(function()
+            if c:IsA("Motor6D") and c.Part0 and c.Part1 and c.Parent then
+                table.insert(E.joints, {
+                    t="m6d", 
+                    inst=c, 
+                    name=c.Name,
+                    origC0=c.C0:Clone(), 
+                    origC1=c.C1:Clone()
+                })
+                motorParts[c.Part0] = true
+                motorParts[c.Part1] = true
             end
-        end
-    end)
-    -- GUI
-    pcall(function()
-        for _,c in ipairs(tgt:GetDescendants()) do
-            pcall(function()
-                if c:IsA("GuiObject") then
+        end)
+    end
+    
+    -- Segundo: Parts soltas (não conectadas por Motor6D e não do char local)
+    for _,c in ipairs(tgt:GetDescendants()) do
+        pcall(function()
+            if c:IsA("BasePart") and not c:IsA("Terrain") and not motorParts[c] then
+                if not E.isLocalChar(c) then
                     table.insert(E.joints, {
-                        t="gui", inst=c, name=c.Name.."_g",
-                        oP=c.Position, oS=c.Size, oR=c.Rotation
+                        t="part", 
+                        inst=c, 
+                        name=c.Name.."_"..tostring(c:GetDebugId()):sub(1,4),
+                        origCF=c.CFrame:Clone()
                     })
                 end
-            end)
+            end
+        end)
+    end
+    
+    -- Se target é uma BasePart solta
+    if tgt:IsA("BasePart") and not E.isLocalChar(tgt) then
+        local found = false
+        for _,j in ipairs(E.joints) do 
+            if j.inst == tgt then 
+                found = true 
+                break 
+            end 
         end
-    end)
+        if not found then
+            table.insert(E.joints, {
+                t="part",
+                inst=tgt,
+                name=tgt.Name.."_root",
+                origCF=tgt.CFrame:Clone()
+            })
+        end
+    end
+    
+    print("[Snow] Scanned: "..#E.joints.." joints in "..tgt.Name)
 end
 
 -- Captura estado atual dos joints
@@ -288,17 +292,33 @@ function E.redo()
 end
 
 function E.addKF()
-    if #E.joints==0 then return end
+    if #E.joints == 0 then 
+        print("[Snow] No joints! Select a target first.")
+        return 
+    end
+    
     E.pushU()
     local data = E.snap()
-    if not data or not next(data) then return end
-    local nl={}
-    for _,kf in ipairs(E.kfs) do
-        if math.abs(kf.t-E.time)>=0.001 then table.insert(nl,kf) end
+    
+    if not data or not next(data) then 
+        print("[Snow] Failed to capture pose!")
+        return 
     end
-    E.kfs=nl
-    table.insert(E.kfs,{t=E.time,j=data})
-    table.sort(E.kfs,function(a,b) return a.t<b.t end)
+    
+    -- Remove keyframe existente no mesmo tempo
+    local newList = {}
+    for _, kf in ipairs(E.kfs) do
+        if math.abs(kf.t - E.time) >= 0.001 then 
+            table.insert(newList, kf) 
+        end
+    end
+    E.kfs = newList
+    
+    -- Adiciona novo keyframe
+    table.insert(E.kfs, {t = E.time, j = data})
+    table.sort(E.kfs, function(a, b) return a.t < b.t end)
+    
+    print("[Snow] Keyframe added at "..string.format("%.2f", E.time).."s ("..#E.kfs.." total)")
 end
 
 function E.removeKF()
@@ -427,52 +447,110 @@ function E.eval(time)
 end
 
 -- APPLY: aplica dados nos joints (SEM mover camera)
+-- Substitua a função E.apply por:
+
 function E.apply(data)
     if not data then return end
+    
     for _,j in ipairs(E.joints) do
-        local d=data[j.name]
-        if d and E.jValid(j) then
-            pcall(function()
-                if j.t=="m6d" then
-                    if d.cf then j.inst.C0=d.cf end
-                elseif j.t=="part" then
-                    if d.cf and not E.isLocalChar(j.inst) then j.inst.CFrame=d.cf end
-                    if d.sz and typeof(d.sz)=="Vector3" then j.inst.Size=d.sz end
-                    if d.tr~=nil then j.inst.Transparency=d.tr end
-                    if d.cl then j.inst.Color=d.cl end
-                elseif j.t=="gui" then
-                    if d.pos then j.inst.Position=d.pos end
-                    if d.sz then j.inst.Size=d.sz end
-                    if d.rot~=nil then j.inst.Rotation=d.rot end
-                    if d.tr~=nil then j.inst.BackgroundTransparency=d.tr end
+        if not E.jValid(j) then continue end
+        
+        local d = data[j.name]
+        if not d then continue end
+        
+        pcall(function()
+            if j.t == "m6d" then
+                -- Motor6D: só mexe no C0
+                if d.cf and typeof(d.cf) == "CFrame" then
+                    j.inst.C0 = d.cf
                 end
-            end)
-        end
+            elseif j.t == "part" then
+                -- Part solta (não do character local)
+                if not E.isLocalChar(j.inst) then
+                    if d.cf and typeof(d.cf) == "CFrame" then
+                        j.inst.CFrame = d.cf
+                    end
+                    if d.sz and typeof(d.sz) == "Vector3" then
+                        j.inst.Size = d.sz
+                    end
+                    if d.tr ~= nil then
+                        j.inst.Transparency = d.tr
+                    end
+                    if d.cl and typeof(d.cl) == "Color3" then
+                        j.inst.Color = d.cl
+                    end
+                end
+            elseif j.t == "gui" then
+                if d.pos then j.inst.Position = d.pos end
+                if d.sz then j.inst.Size = d.sz end
+                if d.rot ~= nil then j.inst.Rotation = d.rot end
+                if d.tr ~= nil then j.inst.BackgroundTransparency = d.tr end
+            end
+        end)
     end
 end
 
 function E.goTo(t) E.time=math.max(0,t) local d=E.eval(E.time) if d then E.apply(d) end end
 
+-- Substitua a função E.play por:
+
 function E.play()
     if E.playing then return end
-    if #E.kfs<2 then return end
-    E.playing=true
-    local st=tick() local sa=E.time local mx=E.maxT()
-    if E.conn then pcall(function() E.conn:Disconnect() end) E.conn=nil end
-    E.conn=S.RS.Heartbeat:Connect(function()
+    if #E.kfs < 1 then 
+        print("[Snow] No keyframes to play!") 
+        return 
+    end
+    if #E.joints == 0 then
+        print("[Snow] No joints! Select a target first.")
+        return
+    end
+    
+    E.playing = true
+    local startTick = tick()
+    local startTime = E.time
+    local maxTime = E.maxT()
+    
+    -- Desconecta conexão anterior
+    if E.conn then 
+        pcall(function() E.conn:Disconnect() end) 
+        E.conn = nil 
+    end
+    
+    E.conn = S.RS.Heartbeat:Connect(function()
         if not E.playing then
-            pcall(function() if E.conn then E.conn:Disconnect() E.conn=nil end end) return
+            if E.conn then 
+                pcall(function() E.conn:Disconnect() end) 
+                E.conn = nil 
+            end
+            return
         end
-        local el=(tick()-st)*E.speed
-        E.time=sa+el
-        if E.time>=mx then
-            if E.looping then st=tick() sa=0 E.time=0
-            else E.time=mx E.playing=false
-                pcall(function() if E.conn then E.conn:Disconnect() E.conn=nil end end) return
+        
+        local elapsed = (tick() - startTick) * E.speed
+        E.time = startTime + elapsed
+        
+        if E.time >= maxTime then
+            if E.looping then
+                startTick = tick()
+                startTime = 0
+                E.time = 0
+            else
+                E.time = maxTime
+                E.playing = false
+                if E.conn then 
+                    pcall(function() E.conn:Disconnect() end) 
+                    E.conn = nil 
+                end
             end
         end
-        local d=E.eval(E.time) if d then E.apply(d) end
+        
+        -- Avalia e aplica
+        local data = E.eval(E.time)
+        if data then 
+            E.apply(data) 
+        end
     end)
+    
+    print("[Snow] Playing animation...")
 end
 
 function E.stop()
@@ -895,18 +973,60 @@ end
 -- SELECT
 S.selBtn=S.TB("🎯Select",1,C.purple,nil)
 S.selActive=false S.selC=nil
+-- Substitua o bloco do SELECT (dentro de S.selBtn.MouseButton1Click) por:
+
 S.selBtn.MouseButton1Click:Connect(function()
-    if S.selActive then S.selActive=false if S.selC then pcall(function() S.selC:Disconnect() end) S.selC=nil end S.selBtn.Text="🎯Select" S.selBtn.BackgroundColor3=C.purple return end
-    S.selActive=true S.selBtn.Text="🎯Click..." S.selBtn.BackgroundColor3=C.orange
+    if S.selActive then 
+        S.selActive=false 
+        if S.selC then pcall(function() S.selC:Disconnect() end) S.selC=nil end 
+        S.selBtn.Text="🎯Select" 
+        S.selBtn.BackgroundColor3=C.purple 
+        return 
+    end
+    S.selActive=true 
+    S.selBtn.Text="🎯Click..." 
+    S.selBtn.BackgroundColor3=C.orange
     S.selC=S.Mouse.Button1Down:Connect(function()
         pcall(function()
             local h=S.Mouse.Target
             if h then
-                local t=h for i=1,5 do if t.Parent and t.Parent:IsA("Model") then t=t.Parent end end
-                E.scan(t) local nm=t.Name S.selBtn.Text="🎯"..nm:sub(1,math.min(#nm,7))
+                -- CORREÇÃO: Encontrar o Model/Rig correto
+                local t = h
+                -- Procura um Model que contenha Humanoid ou Motor6D
+                local found = false
+                local current = h
+                for i=1,10 do
+                    if current.Parent == nil or current.Parent == game or current.Parent == workspace then
+                        break
+                    end
+                    current = current.Parent
+                    if current:IsA("Model") then
+                        -- Verifica se é um rig (tem Humanoid ou Motor6D)
+                        if current:FindFirstChildOfClass("Humanoid") or current:FindFirstDescendantWhichIsA("Motor6D") then
+                            t = current
+                            found = true
+                            break
+                        end
+                    end
+                end
+                -- Se não encontrou rig, usa a part ou seu parent imediato
+                if not found then
+                    if h.Parent and h.Parent:IsA("Model") and h.Parent ~= workspace then
+                        t = h.Parent
+                    else
+                        t = h
+                    end
+                end
+                
+                E.scan(t) 
+                local nm = t.Name 
+                S.selBtn.Text="🎯"..nm:sub(1,math.min(#nm,10))
+                S.selBtn.BackgroundColor3=C.green
+                -- Atualiza lista de joints
+                pcall(S.updJ)
             end
         end)
-        S.selActive=false S.selBtn.BackgroundColor3=C.purple
+        S.selActive=false 
         if S.selC then pcall(function() S.selC:Disconnect() end) S.selC=nil end
     end)
 end)
@@ -1161,38 +1281,89 @@ for i=0,10 do
     N("Frame",{Size=UDim2.new(1,0,0,1),Position=UDim2.new(0,0,i/10,0),BackgroundColor3=Color3.fromRGB(25,28,40),BackgroundTransparency=.5,BorderSizePixel=0,ZIndex=52,Parent=cc})
 end
 
-S.cePts={}
+S.cePts = {}
 function S.drawCurve()
-    for _,p in ipairs(S.cePts) do pcall(function() p:Destroy() end) end S.cePts={}
-    for i=0,50 do local t=i/50
-        local dot=N("Frame",{Size=UDim2.new(0,2,0,2),Position=UDim2.new(t,-1,1-t,-1),BackgroundColor3=Color3.fromRGB(45,48,60),BorderSizePixel=0,ZIndex=53,Parent=cc})
-        if dot then table.insert(S.cePts,dot) end
+    -- Limpa pontos antigos
+    for _,p in ipairs(S.cePts) do 
+        pcall(function() p:Destroy() end) 
     end
-    for i=0,80 do local t=i/80 local et=math.clamp(E.ease(t,E.interp,E.eDir),-0.1,1.1)
-        local dot=N("Frame",{Size=UDim2.new(0,3,0,3),Position=UDim2.new(t,-1,1-et,-1),BackgroundColor3=C.cyan,BorderSizePixel=0,ZIndex=54,Parent=cc})
-        if dot then S.Cn(dot,2) table.insert(S.cePts,dot) end
+    S.cePts = {}
+    
+    -- Verifica se cc existe
+    if not cc or not cc.Parent then return end
+    
+    -- Linha de referência (diagonal)
+    for i = 0, 40 do
+        local t = i / 40
+        local dot = N("Frame", {
+            Size = UDim2.new(0, 2, 0, 2),
+            Position = UDim2.new(t, -1, 1 - t, -1),
+            BackgroundColor3 = Color3.fromRGB(45, 48, 60),
+            BorderSizePixel = 0,
+            ZIndex = 53,
+            Parent = cc
+        })
+        if dot then table.insert(S.cePts, dot) end
     end
-    local sd=N("Frame",{Size=UDim2.new(0,7,0,7),Position=UDim2.new(0,-3,1,-3),BackgroundColor3=C.green,ZIndex=55,Parent=cc}) if sd then S.Cn(sd,4) table.insert(S.cePts,sd) end
-    local ed=N("Frame",{Size=UDim2.new(0,7,0,7),Position=UDim2.new(1,-3,0,-3),BackgroundColor3=C.red,ZIndex=55,Parent=cc}) if ed then S.Cn(ed,4) table.insert(S.cePts,ed) end
+    
+    -- Curva de easing
+    for i = 0, 60 do
+        local t = i / 60
+        local eased = E.ease(t, E.interp, E.eDir)
+        eased = math.clamp(eased, -0.05, 1.05)
+        
+        local dot = N("Frame", {
+            Size = UDim2.new(0, 4, 0, 4),
+            Position = UDim2.new(t, -2, 1 - eased, -2),
+            BackgroundColor3 = C.cyan,
+            BorderSizePixel = 0,
+            ZIndex = 54,
+            Parent = cc
+        })
+        if dot then 
+            S.Cn(dot, 2) 
+            table.insert(S.cePts, dot) 
+        end
+    end
+    
+    -- Ponto inicial (verde)
+    local startDot = N("Frame", {
+        Size = UDim2.new(0, 8, 0, 8),
+        Position = UDim2.new(0, -4, 1, -4),
+        BackgroundColor3 = C.green,
+        ZIndex = 55,
+        Parent = cc
+    })
+    if startDot then 
+        S.Cn(startDot, 4) 
+        table.insert(S.cePts, startDot) 
+    end
+    
+    -- Ponto final (vermelho)
+    local endEased = E.ease(1, E.interp, E.eDir)
+    local endDot = N("Frame", {
+        Size = UDim2.new(0, 8, 0, 8),
+        Position = UDim2.new(1, -4, 1 - endEased, -4),
+        BackgroundColor3 = C.red,
+        ZIndex = 55,
+        Parent = cc
+    })
+    if endDot then 
+        S.Cn(endDot, 4) 
+        table.insert(S.cePts, endDot) 
+    end
 end
 
-local r1=N("Frame",{Size=UDim2.new(0.94,0,0,22),Position=UDim2.new(0.03,0,0,246),BackgroundTransparency=1,ZIndex=51,Parent=CE})
-N("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,Padding=UDim.new(0,2),VerticalAlignment=Enum.VerticalAlignment.Center,Parent=r1})
-for _,m in ipairs({"Linear","Cubic","Quad","Sine","Bounce","Elastic","Back","Expo","Quart","Quint","Circ"}) do
-    local mb=N("TextButton",{Size=UDim2.new(0,36,0,18),BackgroundColor3=C.bg3,Text=m,TextColor3=C.text,TextSize=6,Font=Enum.Font.GothamBold,ZIndex=52,Parent=r1}) S.Cn(mb,3)
-    mb.MouseButton1Click:Connect(function() E.interp=m S.ipBtn.Text=m S.drawCurve() for _,ch in ipairs(r1:GetChildren()) do if ch:IsA("TextButton") then ch.BackgroundColor3=C.bg3 end end mb.BackgroundColor3=C.blue end)
-end
-
-local r2=N("Frame",{Size=UDim2.new(0.94,0,0,22),Position=UDim2.new(0.03,0,0,272),BackgroundTransparency=1,ZIndex=51,Parent=CE})
-N("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,Padding=UDim.new(0,3),VerticalAlignment=Enum.VerticalAlignment.Center,Parent=r2})
-for _,d in ipairs({"In","Out","InOut"}) do
-    local db=N("TextButton",{Size=UDim2.new(0,45,0,18),BackgroundColor3=C.bg3,Text="Ease"..d,TextColor3=C.text,TextSize=7,Font=Enum.Font.GothamBold,ZIndex=52,Parent=r2}) S.Cn(db,3)
-    db.MouseButton1Click:Connect(function() E.eDir=d S.edBtn.Text=d S.drawCurve() for _,ch in ipairs(r2:GetChildren()) do if ch:IsA("TextButton") then ch.BackgroundColor3=C.bg3 end end db.BackgroundColor3=C.purple end)
-end
-local apB=N("TextButton",{Size=UDim2.new(0,100,0,18),BackgroundColor3=C.green,Text="Apply All KFs",TextColor3=C.white,TextSize=7,Font=Enum.Font.GothamBold,ZIndex=52,Parent=r2}) S.Cn(apB,3)
-apB.MouseButton1Click:Connect(function() E.pushU() for _,kf in ipairs(E.kfs) do for _,d in pairs(kf.j) do d.es=E.interp d.ed=E.eDir end end apB.Text="✅Done" spawn(function() wait(1) pcall(function() apB.Text="Apply All KFs" end) end) end)
-
-spawn(function() while S.SG and S.SG.Parent do if CE.Visible then pcall(S.drawCurve) end wait(0.4) end end)
+-- Loop de update do curve editor
+spawn(function() 
+    wait(1)
+    while S.SG and S.SG.Parent do 
+        if CE and CE.Visible then 
+            pcall(S.drawCurve) 
+        end 
+        wait(0.5) 
+    end 
+end)
 
 -- GUIDE MENU
 local GM=Popup("GuideMenu","📚 Snow Animator Pro - Guide",420,480,Color3.fromRGB(50,140,200))
