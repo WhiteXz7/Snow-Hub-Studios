@@ -65,14 +65,14 @@ print("[Snow] P1 OK")
 
 --[[
     Snow Hub Studios❄️ v4 - PARTE 2/9
-    ANIMATION ENGINE - Core
-    Só usa Motor6D.C0 para rigs (não move camera)
-    Parts soltas usa CFrame mas NUNCA do character local
+    ANIMATION ENGINE - Core Professional
+    Motor6D Auto-Creation + IK + Bezier + Physics
 ]]
 local S = _G.S
 S.E = {}
 local E = S.E
 
+-- Core Variables
 E.kfs = {}
 E.time = 0
 E.speed = 1
@@ -96,6 +96,12 @@ E.snapGrid = false
 E.gridSz = 0.5
 E.onion = false
 E.expCount = 0
+E.proMode = true -- Motor6D mode by default
+E.ikEnabled = false
+E.physicsEnabled = false
+E.rootMotion = true
+E.blendTime = 0.1
+E.priority = Enum.AnimationPriority.Action
 
 E.aTypes = {"Core","Idle","Walk","Run","Jump","Climb","Fall","FreeFall",
 "Swim","SwimIdle","Seated","Action1","Action2","Action3","Action4",
@@ -103,231 +109,660 @@ E.aTypes = {"Core","Idle","Walk","Run","Jump","Climb","Fall","FreeFall",
 "Custom1","Custom2","Custom3"}
 
 E.iModes = {"Linear","Cubic","Bounce","Elastic","Back","Quad",
-"Quart","Quint","Sine","Expo","Circ","Constant"}
+"Quart","Quint","Sine","Expo","Circ","Constant","Bezier","Spring"}
 
 E.eDirs = {"In","Out","InOut"}
 
--- Easing
+E.priorities = {
+    Enum.AnimationPriority.Core,
+    Enum.AnimationPriority.Idle,
+    Enum.AnimationPriority.Movement,
+    Enum.AnimationPriority.Action,
+    Enum.AnimationPriority.Action2,
+    Enum.AnimationPriority.Action3,
+    Enum.AnimationPriority.Action4
+}
+
+-- ══════════════════════════════════════
+-- EASING FUNCTIONS (Professional)
+-- ══════════════════════════════════════
+
 function E.bounce(t)
-    if t<1/2.75 then return 7.5625*t*t
-    elseif t<2/2.75 then t=t-1.5/2.75 return 7.5625*t*t+.75
-    elseif t<2.5/2.75 then t=t-2.25/2.75 return 7.5625*t*t+.9375
-    else t=t-2.625/2.75 return 7.5625*t*t+.984375 end
+    if t < 1/2.75 then return 7.5625*t*t
+    elseif t < 2/2.75 then t = t - 1.5/2.75 return 7.5625*t*t + 0.75
+    elseif t < 2.5/2.75 then t = t - 2.25/2.75 return 7.5625*t*t + 0.9375
+    else t = t - 2.625/2.75 return 7.5625*t*t + 0.984375 end
 end
 
-function E.ease(a,s,d)
-    if not s or s=="Linear" then return a end
-    if s=="Constant" then return a>=1 and 1 or 0 end
+function E.spring(t, amplitude, frequency)
+    amplitude = amplitude or 1
+    frequency = frequency or 3
+    return 1 - math.exp(-6 * t) * math.cos(frequency * math.pi * 2 * t) * amplitude
+end
+
+function E.bezier(t, p1, p2)
+    p1 = p1 or 0.25
+    p2 = p2 or 0.75
+    local u = 1 - t
+    return 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t
+end
+
+function E.ease(a, s, d)
+    if not s or s == "Linear" then return a end
+    if s == "Constant" then return a >= 1 and 1 or 0 end
+    if s == "Bezier" then return E.bezier(a) end
+    if s == "Spring" then return E.spring(a) end
+    
     local function ei(t)
-        if s=="Quad" then return t*t
-        elseif s=="Cubic" then return t*t*t
-        elseif s=="Quart" then return t^4
-        elseif s=="Quint" then return t^5
-        elseif s=="Sine" then return 1-math.cos(t*math.pi/2)
-        elseif s=="Expo" then return t==0 and 0 or 2^(10*(t-1))
-        elseif s=="Circ" then return 1-math.sqrt(math.max(0,1-t*t))
-        elseif s=="Back" then return t*t*(2.70158*t-1.70158)
-        elseif s=="Elastic" then
-            if t==0 or t==1 then return t end
-            return -2^(10*(t-1))*math.sin((t-1.1)*5*math.pi)
-        elseif s=="Bounce" then return 1-E.bounce(1-t)
-        end return t
+        if s == "Quad" then return t*t
+        elseif s == "Cubic" then return t*t*t
+        elseif s == "Quart" then return t^4
+        elseif s == "Quint" then return t^5
+        elseif s == "Sine" then return 1 - math.cos(t * math.pi / 2)
+        elseif s == "Expo" then return t == 0 and 0 or 2^(10 * (t - 1))
+        elseif s == "Circ" then return 1 - math.sqrt(math.max(0, 1 - t*t))
+        elseif s == "Back" then return t*t * (2.70158*t - 1.70158)
+        elseif s == "Elastic" then
+            if t == 0 or t == 1 then return t end
+            return -2^(10 * (t - 1)) * math.sin((t - 1.1) * 5 * math.pi)
+        elseif s == "Bounce" then return 1 - E.bounce(1 - t)
+        end
+        return t
     end
+    
     local function eo(t)
-        if s=="Bounce" then return E.bounce(t) end
-        return 1-ei(1-t)
+        if s == "Bounce" then return E.bounce(t) end
+        return 1 - ei(1 - t)
     end
-    d=d or "InOut"
-    if d=="In" then return ei(a)
-    elseif d=="Out" then return eo(a)
-    else return a<.5 and ei(a*2)/2 or .5+eo((a-.5)*2)/2 end
+    
+    d = d or "InOut"
+    if d == "In" then return ei(a)
+    elseif d == "Out" then return eo(a)
+    else return a < 0.5 and ei(a * 2) / 2 or 0.5 + eo((a - 0.5) * 2) / 2 end
 end
 
--- Lerps seguros
-function E.lCF(a,b,t) local o,r=pcall(function() return a:Lerp(b,t) end) return o and r or a end
-function E.lV3(a,b,t) local o,r=pcall(function() return a:Lerp(b,t) end) return o and r or a end
-function E.lN(a,b,t) return a+(b-a)*t end
-function E.lC3(a,b,t) return Color3.new(a.R+(b.R-a.R)*t,a.G+(b.G-a.G)*t,a.B+(b.B-a.B)*t) end
-function E.lU2(a,b,t) return UDim2.new(a.X.Scale+(b.X.Scale-a.X.Scale)*t,a.X.Offset+(b.X.Offset-a.X.Offset)*t,a.Y.Scale+(b.Y.Scale-a.Y.Scale)*t,a.Y.Offset+(b.Y.Offset-a.Y.Offset)*t) end
+-- ══════════════════════════════════════
+-- LERP FUNCTIONS (Smooth Interpolation)
+-- ══════════════════════════════════════
+
+function E.lCF(a, b, t)
+    -- Spherical interpolation for smoother rotation
+    local ok, r = pcall(function()
+        return a:Lerp(b, t)
+    end)
+    return ok and r or a
+end
+
+function E.lV3(a, b, t)
+    local ok, r = pcall(function()
+        return a:Lerp(b, t)
+    end)
+    return ok and r or a
+end
+
+function E.lN(a, b, t)
+    return a + (b - a) * t
+end
+
+function E.lC3(a, b, t)
+    -- HSV interpolation for better color blending
+    local h1, s1, v1 = Color3.toHSV(a)
+    local h2, s2, v2 = Color3.toHSV(b)
+    
+    -- Handle hue wrapping
+    if math.abs(h2 - h1) > 0.5 then
+        if h1 > h2 then h2 = h2 + 1
+        else h1 = h1 + 1 end
+    end
+    
+    local h = (h1 + (h2 - h1) * t) % 1
+    local s = s1 + (s2 - s1) * t
+    local v = v1 + (v2 - v1) * t
+    
+    return Color3.fromHSV(h, s, v)
+end
+
+function E.lU2(a, b, t)
+    return UDim2.new(
+        a.X.Scale + (b.X.Scale - a.X.Scale) * t,
+        a.X.Offset + (b.X.Offset - a.X.Offset) * t,
+        a.Y.Scale + (b.Y.Scale - a.Y.Scale) * t,
+        a.Y.Offset + (b.Y.Offset - a.Y.Offset) * t
+    )
+end
+
+-- Catmull-Rom spline for super smooth animation
+function E.catmullRom(p0, p1, p2, p3, t)
+    local t2 = t * t
+    local t3 = t2 * t
+    return 0.5 * (
+        (2 * p1) +
+        (-p0 + p2) * t +
+        (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 +
+        (-p0 + 3 * p1 - 3 * p2 + p3) * t3
+    )
+end
+
+-- ══════════════════════════════════════
+-- VALIDATION & UTILITIES
+-- ══════════════════════════════════════
 
 function E.jValid(j)
     if not j or not j.inst then return false end
-    local o,r=pcall(function() return j.inst.Parent~=nil end)
-    return o and r
+    local ok, r = pcall(function()
+        return j.inst.Parent ~= nil
+    end)
+    return ok and r
 end
 
--- É part do character local? Se sim, NÃO mover CFrame
 function E.isLocalChar(inst)
     if not inst then return false end
     local char = S.LP.Character
     if not char then return false end
-    local success, result = pcall(function()
+    local ok, r = pcall(function()
         return inst:IsDescendantOf(char)
     end)
-    return success and result
+    return ok and r
 end
+
+-- ══════════════════════════════════════
+-- MOTOR6D AUTO-CREATION (Professional Rigging)
+-- ══════════════════════════════════════
+
+function E.findRootPart(tgt)
+    if not tgt then return nil end
+    
+    -- Priority order for root
+    local rootNames = {"HumanoidRootPart", "Torso", "UpperTorso", "Root", "RootPart", "Base", "Body"}
+    
+    for _, name in ipairs(rootNames) do
+        local found = tgt:FindFirstChild(name, true)
+        if found and found:IsA("BasePart") then
+            return found
+        end
+    end
+    
+    -- If no named root, find the largest part
+    local largest = nil
+    local largestSize = 0
+    
+    pcall(function()
+        for _, c in ipairs(tgt:GetDescendants()) do
+            if c:IsA("BasePart") and not c:IsA("Terrain") then
+                local size = c.Size.X * c.Size.Y * c.Size.Z
+                if size > largestSize then
+                    largestSize = size
+                    largest = c
+                end
+            end
+        end
+    end)
+    
+    return largest or (tgt:IsA("BasePart") and tgt or nil)
+end
+
+function E.getPartHierarchy(tgt)
+    local parts = {}
+    local rootPart = E.findRootPart(tgt)
+    
+    if not rootPart then return parts end
+    
+    pcall(function()
+        -- Add root first
+        table.insert(parts, {part = rootPart, parent = nil, depth = 0})
+        
+        -- Get all other parts
+        local otherParts = {}
+        for _, c in ipairs(tgt:GetDescendants()) do
+            if c:IsA("BasePart") and not c:IsA("Terrain") and c ~= rootPart then
+                table.insert(otherParts, c)
+            end
+        end
+        
+        -- Sort by distance from root (creates natural hierarchy)
+        table.sort(otherParts, function(a, b)
+            return (a.Position - rootPart.Position).Magnitude < (b.Position - rootPart.Position).Magnitude
+        end)
+        
+        -- Build hierarchy based on proximity
+        for _, part in ipairs(otherParts) do
+            local closestParent = rootPart
+            local closestDist = (part.Position - rootPart.Position).Magnitude
+            
+            -- Find closest already-added part
+            for _, entry in ipairs(parts) do
+                local dist = (part.Position - entry.part.Position).Magnitude
+                if dist < closestDist and dist > 0.01 then
+                    closestDist = dist
+                    closestParent = entry.part
+                end
+            end
+            
+            local parentDepth = 0
+            for _, entry in ipairs(parts) do
+                if entry.part == closestParent then
+                    parentDepth = entry.depth
+                    break
+                end
+            end
+            
+            table.insert(parts, {part = part, parent = closestParent, depth = parentDepth + 1})
+        end
+    end)
+    
+    return parts
+end
+
+function E.createMotors(tgt)
+    if not tgt then return 0 end
+    
+    print("[Snow] 🦴 Creating professional rig...")
+    
+    local hierarchy = E.getPartHierarchy(tgt)
+    local created = 0
+    
+    for _, entry in ipairs(hierarchy) do
+        if entry.parent then
+            -- Check if motor already exists
+            local hasMotor = false
+            pcall(function()
+                for _, child in ipairs(entry.parent:GetChildren()) do
+                    if child:IsA("Motor6D") and child.Part1 == entry.part then
+                        hasMotor = true
+                        break
+                    end
+                end
+                for _, child in ipairs(entry.part:GetChildren()) do
+                    if child:IsA("Motor6D") and child.Part1 == entry.part then
+                        hasMotor = true
+                        break
+                    end
+                end
+            end)
+            
+            if not hasMotor then
+                pcall(function()
+                    local motor = Instance.new("Motor6D")
+                    motor.Name = "Snow_" .. entry.part.Name
+                    motor.Part0 = entry.parent
+                    motor.Part1 = entry.part
+                    
+                    -- Calculate proper C0 and C1 for natural joint position
+                    local jointPos = (entry.parent.Position + entry.part.Position) / 2
+                    motor.C0 = entry.parent.CFrame:ToObjectSpace(CFrame.new(jointPos))
+                    motor.C1 = entry.part.CFrame:ToObjectSpace(CFrame.new(jointPos))
+                    
+                    motor.Parent = entry.parent
+                    created = created + 1
+                    
+                    print("[Snow]   + " .. entry.parent.Name .. " → " .. entry.part.Name)
+                end)
+            end
+        end
+    end
+    
+    print("[Snow] ✅ Created " .. created .. " Motor6D joints")
+    return created
+end
+
+function E.removeMotors(tgt)
+    if not tgt then return 0 end
+    
+    local removed = 0
+    pcall(function()
+        for _, c in ipairs(tgt:GetDescendants()) do
+            if c:IsA("Motor6D") and c.Name:sub(1, 5) == "Snow_" then
+                c:Destroy()
+                removed = removed + 1
+            end
+        end
+    end)
+    
+    print("[Snow] 🗑️ Removed " .. removed .. " auto-created motors")
+    return removed
+end
+
+function E.hasMotors(tgt)
+    if not tgt then return false end
+    local found = false
+    pcall(function()
+        for _, c in ipairs(tgt:GetDescendants()) do
+            if c:IsA("Motor6D") then
+                found = true
+                break
+            end
+        end
+    end)
+    return found
+end
+
+-- ══════════════════════════════════════
+-- SCANNING (Detects all animatable objects)
+-- ══════════════════════════════════════
 
 function E.scan(tgt)
     E.joints = {}
     E.target = tgt
-    if not tgt then 
-        print("[Snow] No target provided")
-        return 
+    
+    if not tgt then
+        print("[Snow] ❌ No target provided")
+        return
     end
     
-    print("[Snow] Scanning: "..tgt.Name.." ("..tgt.ClassName..")")
+    print("[Snow] 🔍 Scanning: " .. tgt.Name .. " (" .. tgt.ClassName .. ")")
     
+    local descendants = {}
+    pcall(function()
+        descendants = tgt:GetDescendants()
+    end)
+    
+    -- Count parts
+    local partCount = 0
+    for _, c in ipairs(descendants) do
+        if c:IsA("BasePart") and not c:IsA("Terrain") then
+            partCount = partCount + 1
+        end
+    end
+    if tgt:IsA("BasePart") then partCount = partCount + 1 end
+    
+    -- ═══ PRO MODE: Auto-create Motor6D if needed ═══
+    if E.proMode and partCount >= 2 and not E.hasMotors(tgt) then
+        print("[Snow] 🦴 Pro Mode: Creating Motor6D rig...")
+        E.createMotors(tgt)
+        -- Refresh descendants
+        pcall(function()
+            descendants = tgt:GetDescendants()
+        end)
+    end
+    
+    -- ═══ 1. MOTOR6D (Best quality) ═══
     local motorParts = {}
-    
-    -- Método 1: Busca Motor6D diretamente
-    local descendants = tgt:GetDescendants()
-    for i = 1, #descendants do
-        local c = descendants[i]
-        if c:IsA("Motor6D") then
-            if c.Part0 and c.Part1 then
+    for _, c in ipairs(descendants) do
+        pcall(function()
+            if c:IsA("Motor6D") and c.Part0 and c.Part1 then
                 table.insert(E.joints, {
-                    t = "m6d", 
-                    inst = c, 
+                    t = "m6d",
+                    inst = c,
                     name = c.Name,
-                    origC0 = c.C0, 
-                    origC1 = c.C1
+                    origC0 = c.C0,
+                    origC1 = c.C1,
+                    part0 = c.Part0,
+                    part1 = c.Part1
                 })
                 motorParts[c.Part0] = true
                 motorParts[c.Part1] = true
-                print("[Snow] Found Motor6D: "..c.Name)
             end
-        end
+        end)
     end
     
-    -- Método 2: Se não encontrou Motor6D, busca em locais comuns de rigs
-    if #E.joints == 0 then
-        local searchLocations = {}
-        
-        -- HumanoidRootPart
-        local hrp = tgt:FindFirstChild("HumanoidRootPart")
-        if hrp then table.insert(searchLocations, hrp) end
-        
-        -- Torso / UpperTorso
-        local torso = tgt:FindFirstChild("Torso") or tgt:FindFirstChild("UpperTorso")
-        if torso then table.insert(searchLocations, torso) end
-        
-        -- Head
-        local head = tgt:FindFirstChild("Head")
-        if head then table.insert(searchLocations, head) end
-        
-        -- Busca em todas as parts
-        for i = 1, #descendants do
-            local c = descendants[i]
-            if c:IsA("BasePart") then
-                table.insert(searchLocations, c)
+    -- ═══ 2. BONES (R15/Skinned meshes) ═══
+    for _, c in ipairs(descendants) do
+        pcall(function()
+            if c:IsA("Bone") then
+                table.insert(E.joints, {
+                    t = "bone",
+                    inst = c,
+                    name = "Bone_" .. c.Name,
+                    origCF = c.CFrame,
+                    origTrans = c.Transform
+                })
             end
-        end
-        
-        for _, loc in ipairs(searchLocations) do
-            for _, child in ipairs(loc:GetChildren()) do
-                if child:IsA("Motor6D") and child.Part0 and child.Part1 then
-                    local exists = false
-                    for _, j in ipairs(E.joints) do
-                        if j.inst == child then exists = true break end
-                    end
-                    if not exists then
-                        table.insert(E.joints, {
-                            t = "m6d", 
-                            inst = child, 
-                            name = child.Name,
-                            origC0 = child.C0, 
-                            origC1 = child.C1
-                        })
-                        motorParts[child.Part0] = true
-                        motorParts[child.Part1] = true
-                        print("[Snow] Found Motor6D in "..loc.Name..": "..child.Name)
-                    end
-                end
-            end
-        end
+        end)
     end
     
-    -- Método 3: Parts soltas (não conectadas por Motor6D)
-    if #E.joints == 0 then
-        print("[Snow] No Motor6D found, scanning loose parts...")
-        for i = 1, #descendants do
-            local c = descendants[i]
-            if c:IsA("BasePart") and not c:IsA("Terrain") then
-                if not E.isLocalChar(c) then
-                    local partName = c.Name.."_"..tostring(i)
-                    table.insert(E.joints, {
-                        t = "part", 
-                        inst = c, 
-                        name = partName,
-                        origCF = c.CFrame
-                    })
-                end
-            end
-        end
-    end
-    
-    -- Método 4: Se target é uma BasePart solta
-    if tgt:IsA("BasePart") and not E.isLocalChar(tgt) then
-        local found = false
-        for _, j in ipairs(E.joints) do 
-            if j.inst == tgt then 
-                found = true 
-                break 
-            end 
-        end
-        if not found then
+    -- ═══ 3. PARTS (Fallback for non-rigged) ═══
+    if #E.joints == 0 or not E.proMode then
+        if tgt:IsA("BasePart") and not E.isLocalChar(tgt) and not motorParts[tgt] then
             table.insert(E.joints, {
                 t = "part",
                 inst = tgt,
-                name = tgt.Name.."_root",
-                origCF = tgt.CFrame
+                name = tgt.Name,
+                origCF = tgt.CFrame,
+                origSize = tgt.Size,
+                origColor = tgt.Color,
+                origTrans = tgt.Transparency
             })
         end
-    end
-    
-    -- GUI elements
-    for i = 1, #descendants do
-        local c = descendants[i]
-        if c:IsA("GuiObject") then
-            table.insert(E.joints, {
-                t = "gui", 
-                inst = c, 
-                name = c.Name.."_g",
-                oP = c.Position, 
-                oS = c.Size, 
-                oR = c.Rotation
-            })
-        end
-    end
-    
-    print("[Snow] ✅ Scan complete: "..#E.joints.." joints found in "..tgt.Name)
-    
-    -- Atualiza a lista de joints na UI
-    if S.updJ then
-        pcall(S.updJ)
-    end
-end
-
--- Captura estado atual dos joints
-function E.snap()
-    local d = {}
-    for _,j in ipairs(E.joints) do
-        if E.jValid(j) then
+        
+        for i, c in ipairs(descendants) do
             pcall(function()
-                if j.t=="m6d" then
-                    d[j.name]={cf=j.inst.C0, es=E.interp, ed=E.eDir}
-                elseif j.t=="part" then
-                    d[j.name]={cf=j.inst.CFrame, sz=j.inst.Size,
-                        tr=j.inst.Transparency, cl=j.inst.Color,
-                        es=E.interp, ed=E.eDir}
-                elseif j.t=="gui" then
-                    d[j.name]={pos=j.inst.Position, sz=j.inst.Size,
-                        rot=j.inst.Rotation, tr=j.inst.BackgroundTransparency,
-                        es=E.interp, ed=E.eDir}
+                if c:IsA("BasePart") and not c:IsA("Terrain") and not E.isLocalChar(c) and not motorParts[c] then
+                    local pName = c.Name
+                    local count = 0
+                    for _, j in ipairs(E.joints) do
+                        if j.name == pName or j.name:match("^" .. pName .. "_%d+$") then
+                            count = count + 1
+                        end
+                    end
+                    if count > 0 then pName = c.Name .. "_" .. count end
+                    
+                    table.insert(E.joints, {
+                        t = "part",
+                        inst = c,
+                        name = pName,
+                        origCF = c.CFrame,
+                        origSize = c.Size,
+                        origColor = c.Color,
+                        origTrans = c.Transparency
+                    })
                 end
             end)
         end
     end
+    
+    -- ═══ 4. GUI ═══
+    for _, c in ipairs(descendants) do
+        pcall(function()
+            if c:IsA("GuiObject") then
+                table.insert(E.joints, {
+                    t = "gui",
+                    inst = c,
+                    name = c.Name .. "_gui",
+                    oP = c.Position,
+                    oS = c.Size,
+                    oR = c.Rotation,
+                    oT = c.BackgroundTransparency,
+                    oC = c.BackgroundColor3
+                })
+            end
+        end)
+    end
+    
+    -- ═══ 5. LIGHTS ═══
+    for _, c in ipairs(descendants) do
+        pcall(function()
+            if c:IsA("Light") then
+                table.insert(E.joints, {
+                    t = "light",
+                    inst = c,
+                    name = c.Name .. "_light",
+                    origBright = c.Brightness,
+                    origColor = c.Color,
+                    origEnabled = c.Enabled,
+                    origRange = c:IsA("PointLight") and c.Range or nil,
+                    origAngle = c:IsA("SpotLight") and c.Angle or nil
+                })
+            end
+        end)
+    end
+    
+    -- ═══ 6. PARTICLES ═══
+    for _, c in ipairs(descendants) do
+        pcall(function()
+            if c:IsA("ParticleEmitter") then
+                table.insert(E.joints, {
+                    t = "particle",
+                    inst = c,
+                    name = c.Name .. "_particle",
+                    origEnabled = c.Enabled,
+                    origRate = c.Rate,
+                    origSpeed = c.Speed,
+                    origSize = c.Size,
+                    origTrans = c.Transparency,
+                    origLife = c.Lifetime
+                })
+            elseif c:IsA("Beam") then
+                table.insert(E.joints, {
+                    t = "beam",
+                    inst = c,
+                    name = c.Name .. "_beam",
+                    origEnabled = c.Enabled,
+                    origWidth0 = c.Width0,
+                    origWidth1 = c.Width1,
+                    origColor = c.Color
+                })
+            elseif c:IsA("Trail") then
+                table.insert(E.joints, {
+                    t = "trail",
+                    inst = c,
+                    name = c.Name .. "_trail",
+                    origEnabled = c.Enabled,
+                    origLife = c.Lifetime,
+                    origWidth = c.WidthScale
+                })
+            end
+        end)
+    end
+    
+    -- ═══ 7. SOUNDS ═══
+    for _, c in ipairs(descendants) do
+        pcall(function()
+            if c:IsA("Sound") then
+                table.insert(E.joints, {
+                    t = "sound",
+                    inst = c,
+                    name = c.Name .. "_sound",
+                    origVol = c.Volume,
+                    origPitch = c.PlaybackSpeed,
+                    origPlaying = c.Playing
+                })
+            end
+        end)
+    end
+    
+    -- ═══ 8. MESH DEFORMATION ═══
+    for _, c in ipairs(descendants) do
+        pcall(function()
+            if c:IsA("SpecialMesh") or c:IsA("BlockMesh") or c:IsA("CylinderMesh") then
+                table.insert(E.joints, {
+                    t = "mesh",
+                    inst = c,
+                    name = c.Name .. "_mesh",
+                    origScale = c.Scale,
+                    origOffset = c.Offset
+                })
+            end
+        end)
+    end
+    
+    print("[Snow] ✅ Found " .. #E.joints .. " animatable objects:")
+    
+    -- Summary by type
+    local counts = {}
+    for _, j in ipairs(E.joints) do
+        counts[j.t] = (counts[j.t] or 0) + 1
+    end
+    for t, c in pairs(counts) do
+        print("[Snow]   • " .. t .. ": " .. c)
+    end
+    
+    pcall(S.updJ)
+end
+
+-- ══════════════════════════════════════
+-- SNAPSHOT (Captures current state)
+-- ══════════════════════════════════════
+
+function E.snap()
+    local d = {}
+    
+    for _, j in ipairs(E.joints) do
+        if E.jValid(j) then
+            pcall(function()
+                if j.t == "m6d" then
+                    d[j.name] = {
+                        cf = j.inst.C0,
+                        c1 = j.inst.C1,
+                        es = E.interp,
+                        ed = E.eDir
+                    }
+                elseif j.t == "bone" then
+                    d[j.name] = {
+                        cf = j.inst.CFrame,
+                        trans = j.inst.Transform,
+                        es = E.interp,
+                        ed = E.eDir
+                    }
+                elseif j.t == "part" then
+                    d[j.name] = {
+                        cf = j.inst.CFrame,
+                        sz = j.inst.Size,
+                        tr = j.inst.Transparency,
+                        cl = j.inst.Color,
+                        es = E.interp,
+                        ed = E.eDir
+                    }
+                elseif j.t == "gui" then
+                    d[j.name] = {
+                        pos = j.inst.Position,
+                        sz = j.inst.Size,
+                        rot = j.inst.Rotation,
+                        tr = j.inst.BackgroundTransparency,
+                        cl = j.inst.BackgroundColor3,
+                        es = E.interp,
+                        ed = E.eDir
+                    }
+                elseif j.t == "light" then
+                    d[j.name] = {
+                        bright = j.inst.Brightness,
+                        cl = j.inst.Color,
+                        enabled = j.inst.Enabled,
+                        range = j.inst:IsA("PointLight") and j.inst.Range or nil,
+                        angle = j.inst:IsA("SpotLight") and j.inst.Angle or nil,
+                        es = E.interp,
+                        ed = E.eDir
+                    }
+                elseif j.t == "particle" then
+                    d[j.name] = {
+                        enabled = j.inst.Enabled,
+                        rate = j.inst.Rate,
+                        es = E.interp,
+                        ed = E.eDir
+                    }
+                elseif j.t == "sound" then
+                    d[j.name] = {
+                        vol = j.inst.Volume,
+                        pitch = j.inst.PlaybackSpeed,
+                        es = E.interp,
+                        ed = E.eDir
+                    }
+                elseif j.t == "mesh" then
+                    d[j.name] = {
+                        scale = j.inst.Scale,
+                        offset = j.inst.Offset,
+                        es = E.interp,
+                        ed = E.eDir
+                    }
+                elseif j.t == "beam" then
+                    d[j.name] = {
+                        enabled = j.inst.Enabled,
+                        w0 = j.inst.Width0,
+                        w1 = j.inst.Width1,
+                        es = E.interp,
+                        ed = E.eDir
+                    }
+                elseif j.t == "trail" then
+                    d[j.name] = {
+                        enabled = j.inst.Enabled,
+                        life = j.inst.Lifetime,
+                        es = E.interp,
+                        ed = E.eDir
+                    }
+                end
+            end)
+        end
+    end
+    
     return d
 end
 
@@ -335,254 +770,441 @@ print("[Snow] P2 OK")
 
 --[[
     Snow Hub Studios❄️ v4 - PARTE 3/9
-    ENGINE - Undo, KF ops, Eval, Apply, Play
+    ENGINE - Undo, KF ops, Eval, Apply, Play (Professional)
 ]]
 local S = _G.S
 local E = S.E
 
--- Deep copy de keyframes
+-- ══════════════════════════════════════
+-- UNDO / REDO SYSTEM
+-- ══════════════════════════════════════
+
 function E.copyKFs()
     local c = {}
-    for i,kf in ipairs(E.kfs) do
+    for i, kf in ipairs(E.kfs) do
         local jc = {}
-        for k,v in pairs(kf.j) do
-            local vc = {} for kk,vv in pairs(v) do vc[kk]=vv end
-            jc[k]=vc
+        for k, v in pairs(kf.j) do
+            local vc = {}
+            for kk, vv in pairs(v) do
+                vc[kk] = vv
+            end
+            jc[k] = vc
         end
-        c[i]={t=kf.t,j=jc}
+        c[i] = {t = kf.t, j = jc}
     end
     return c
 end
 
 function E.pushU()
-    table.insert(E.undos,{kf=E.copyKFs(),time=E.time,spd=E.speed})
-    if #E.undos>50 then table.remove(E.undos,1) end
-    E.redos={}
+    table.insert(E.undos, {kf = E.copyKFs(), time = E.time, spd = E.speed})
+    if #E.undos > 50 then table.remove(E.undos, 1) end
+    E.redos = {}
 end
 
 function E.undo()
-    if #E.undos==0 then return end
-    table.insert(E.redos,{kf=E.copyKFs(),time=E.time,spd=E.speed})
-    local s=table.remove(E.undos) E.kfs=s.kf E.time=s.time E.speed=s.spd
+    if #E.undos == 0 then return end
+    table.insert(E.redos, {kf = E.copyKFs(), time = E.time, spd = E.speed})
+    local s = table.remove(E.undos)
+    E.kfs = s.kf
+    E.time = s.time
+    E.speed = s.spd
 end
 
 function E.redo()
-    if #E.redos==0 then return end
-    table.insert(E.undos,{kf=E.copyKFs(),time=E.time,spd=E.speed})
-    local s=table.remove(E.redos) E.kfs=s.kf E.time=s.time E.speed=s.spd
+    if #E.redos == 0 then return end
+    table.insert(E.undos, {kf = E.copyKFs(), time = E.time, spd = E.speed})
+    local s = table.remove(E.redos)
+    E.kfs = s.kf
+    E.time = s.time
+    E.speed = s.spd
 end
 
+-- ══════════════════════════════════════
+-- KEYFRAME OPERATIONS
+-- ══════════════════════════════════════
+
 function E.addKF()
-    if #E.joints == 0 then 
-        print("[Snow] No joints! Select a target first.")
-        return 
+    if #E.joints == 0 then
+        print("[Snow] ❌ No joints! Select a target first.")
+        return
     end
     
     E.pushU()
     local data = E.snap()
     
-    if not data or not next(data) then 
-        print("[Snow] Failed to capture pose!")
-        return 
+    if not data or not next(data) then
+        print("[Snow] ❌ Failed to capture pose!")
+        return
     end
     
-    -- Remove keyframe existente no mesmo tempo
+    -- Remove existing keyframe at same time
     local newList = {}
     for _, kf in ipairs(E.kfs) do
-        if math.abs(kf.t - E.time) >= 0.001 then 
-            table.insert(newList, kf) 
+        if math.abs(kf.t - E.time) >= 0.001 then
+            table.insert(newList, kf)
         end
     end
     E.kfs = newList
     
-    -- Adiciona novo keyframe
+    -- Add new keyframe
     table.insert(E.kfs, {t = E.time, j = data})
     table.sort(E.kfs, function(a, b) return a.t < b.t end)
     
-    print("[Snow] Keyframe added at "..string.format("%.2f", E.time).."s ("..#E.kfs.." total)")
+    print("[Snow] ✅ Keyframe added at " .. string.format("%.2f", E.time) .. "s (" .. #E.kfs .. " total)")
 end
 
 function E.removeKF()
     E.pushU()
-    local nl={}
-    for _,kf in ipairs(E.kfs) do
-        if math.abs(kf.t-E.time)>=0.05 then table.insert(nl,kf) end
+    local newList = {}
+    for _, kf in ipairs(E.kfs) do
+        if math.abs(kf.t - E.time) >= 0.05 then
+            table.insert(newList, kf)
+        end
     end
-    E.kfs=nl
+    E.kfs = newList
+    print("[Snow] 🗑️ Keyframe removed")
 end
 
 function E.maxT()
-    local m=0
-    for _,kf in ipairs(E.kfs) do if kf.t>m then m=kf.t end end
-    return math.max(m,0.1)
+    local m = 0
+    for _, kf in ipairs(E.kfs) do
+        if kf.t > m then m = kf.t end
+    end
+    return math.max(m, 0.1)
 end
 
 function E.copyKF()
-    for _,kf in ipairs(E.kfs) do
-        if math.abs(kf.t-E.time)<0.05 then
-            E.clip={} for k,v in pairs(kf.j) do
-                local vc={} for kk,vv in pairs(v) do vc[kk]=vv end E.clip[k]=vc
-            end return true
+    for _, kf in ipairs(E.kfs) do
+        if math.abs(kf.t - E.time) < 0.05 then
+            E.clip = {}
+            for k, v in pairs(kf.j) do
+                local vc = {}
+                for kk, vv in pairs(v) do
+                    vc[kk] = vv
+                end
+                E.clip[k] = vc
+            end
+            print("[Snow] 📋 Keyframe copied")
+            return true
         end
-    end return false
+    end
+    return false
 end
 
 function E.pasteKF()
-    if not E.clip then return end
+    if not E.clip then
+        print("[Snow] ❌ Nothing to paste")
+        return
+    end
     E.pushU()
-    local nl={} for _,kf in ipairs(E.kfs) do if math.abs(kf.t-E.time)>=0.001 then table.insert(nl,kf) end end
-    E.kfs=nl
-    local jc={} for k,v in pairs(E.clip) do local vc={} for kk,vv in pairs(v) do vc[kk]=vv end jc[k]=vc end
-    table.insert(E.kfs,{t=E.time,j=jc})
-    table.sort(E.kfs,function(a,b) return a.t<b.t end)
+    local newList = {}
+    for _, kf in ipairs(E.kfs) do
+        if math.abs(kf.t - E.time) >= 0.001 then
+            table.insert(newList, kf)
+        end
+    end
+    E.kfs = newList
+    local jc = {}
+    for k, v in pairs(E.clip) do
+        local vc = {}
+        for kk, vv in pairs(v) do
+            vc[kk] = vv
+        end
+        jc[k] = vc
+    end
+    table.insert(E.kfs, {t = E.time, j = jc})
+    table.sort(E.kfs, function(a, b) return a.t < b.t end)
+    print("[Snow] 📋 Keyframe pasted")
 end
 
-function E.clearAll() E.pushU() E.kfs={} end
+function E.clearAll()
+    E.pushU()
+    E.kfs = {}
+    print("[Snow] 🗑️ All keyframes cleared")
+end
 
 function E.mirror()
     E.pushU()
-    for _,kf in ipairs(E.kfs) do
-        if math.abs(kf.t-E.time)<0.05 then
-            for _,d in pairs(kf.j) do
-                if d.cf then pcall(function()
-                    local p=d.cf.Position local rx,ry,rz=d.cf:ToEulerAnglesXYZ()
-                    if E.mirrorAxis=="X" then d.cf=CFrame.new(-p.X,p.Y,p.Z)*CFrame.Angles(-rx,ry,rz)
-                    elseif E.mirrorAxis=="Y" then d.cf=CFrame.new(p.X,-p.Y,p.Z)*CFrame.Angles(rx,-ry,rz)
-                    else d.cf=CFrame.new(p.X,p.Y,-p.Z)*CFrame.Angles(rx,ry,-rz) end
-                end) end
-            end break
+    for _, kf in ipairs(E.kfs) do
+        if math.abs(kf.t - E.time) < 0.05 then
+            for _, d in pairs(kf.j) do
+                if d.cf then
+                    pcall(function()
+                        local p = d.cf.Position
+                        local rx, ry, rz = d.cf:ToEulerAnglesXYZ()
+                        if E.mirrorAxis == "X" then
+                            d.cf = CFrame.new(-p.X, p.Y, p.Z) * CFrame.Angles(-rx, ry, rz)
+                        elseif E.mirrorAxis == "Y" then
+                            d.cf = CFrame.new(p.X, -p.Y, p.Z) * CFrame.Angles(rx, -ry, rz)
+                        else
+                            d.cf = CFrame.new(p.X, p.Y, -p.Z) * CFrame.Angles(rx, ry, -rz)
+                        end
+                    end)
+                end
+            end
+            print("[Snow] 🪞 Mirrored on " .. E.mirrorAxis)
+            break
         end
     end
 end
 
 function E.reverseKFs()
     E.pushU()
-    if #E.kfs==0 then return end
-    local mx=E.maxT()
-    for _,kf in ipairs(E.kfs) do kf.t=mx-kf.t end
-    table.sort(E.kfs,function(a,b) return a.t<b.t end)
+    if #E.kfs == 0 then return end
+    local mx = E.maxT()
+    for _, kf in ipairs(E.kfs) do
+        kf.t = mx - kf.t
+    end
+    table.sort(E.kfs, function(a, b) return a.t < b.t end)
+    print("[Snow] ⏪ Animation reversed")
 end
 
 function E.dupKF()
-    for _,kf in ipairs(E.kfs) do
-        if math.abs(kf.t-E.time)<0.05 then
+    for _, kf in ipairs(E.kfs) do
+        if math.abs(kf.t - E.time) < 0.05 then
             E.pushU()
-            local jc={} for k,v in pairs(kf.j) do local vc={} for kk,vv in pairs(v) do vc[kk]=vv end jc[k]=vc end
-            table.insert(E.kfs,{t=E.time+0.5,j=jc})
-            table.sort(E.kfs,function(a,b) return a.t<b.t end) return
+            local jc = {}
+            for k, v in pairs(kf.j) do
+                local vc = {}
+                for kk, vv in pairs(v) do
+                    vc[kk] = vv
+                end
+                jc[k] = vc
+            end
+            table.insert(E.kfs, {t = E.time + 0.5, j = jc})
+            table.sort(E.kfs, function(a, b) return a.t < b.t end)
+            print("[Snow] 📑 Keyframe duplicated")
+            return
         end
     end
 end
 
-function E.scaleT(f) E.pushU() for _,kf in ipairs(E.kfs) do kf.t=kf.t*f end end
-function E.addMarker() table.insert(E.markers,{t=E.time,name="M"..#E.markers+1}) end
+function E.scaleT(f)
+    E.pushU()
+    for _, kf in ipairs(E.kfs) do
+        kf.t = kf.t * f
+    end
+    print("[Snow] ⏱️ Time scaled by " .. f .. "x")
+end
+
+function E.addMarker()
+    table.insert(E.markers, {t = E.time, name = "M" .. (#E.markers + 1)})
+    print("[Snow] 📌 Marker added")
+end
 
 function E.resetPose()
-    for _,j in ipairs(E.joints) do
-        if E.jValid(j) then pcall(function()
-            if j.t=="m6d" then j.inst.C0=j.origC0
-            elseif j.t=="part" then j.inst.CFrame=j.origCF
-            elseif j.t=="gui" then j.inst.Position=j.oP j.inst.Size=j.oS j.inst.Rotation=j.oR end
-        end) end
-    end
-end
-
--- EVALUATE: interpola entre keyframes
-function E.eval(time)
-    local n=#E.kfs
-    if n==0 then return nil end
-    if n==1 then return E.kfs[1].j end
-    local p,nx=nil,nil
-    for i=1,n do
-        if E.kfs[i].t<=time then p=E.kfs[i] end
-        if E.kfs[i].t>=time and nx==nil then nx=E.kfs[i] end
-    end
-    if not p then p=E.kfs[1] end
-    if not nx then nx=E.kfs[n] end
-    if p==nx then return p.j end
-    local diff=nx.t-p.t
-    if diff<=0 then return p.j end
-    local raw=math.clamp((time-p.t)/diff,0,1)
-    local result={}
-    local all={} for k in pairs(p.j) do all[k]=true end for k in pairs(nx.j) do all[k]=true end
-    for k in pairs(all) do
-        local a,b=p.j[k],nx.j[k]
-        if a and not b then result[k]=a
-        elseif b and not a then result[k]=b
-        elseif a and b then
-            local ea=E.ease(raw,b.es or "Linear",b.ed or "InOut")
-            local r={es=b.es,ed=b.ed}
-            if a.cf and b.cf then r.cf=E.lCF(a.cf,b.cf,ea) end
-            if a.sz and b.sz then
-                if typeof(a.sz)=="Vector3" then r.sz=E.lV3(a.sz,b.sz,ea)
-                elseif typeof(a.sz)=="UDim2" then r.sz=E.lU2(a.sz,b.sz,ea) end
-            end
-            if a.tr~=nil and b.tr~=nil then r.tr=E.lN(a.tr,b.tr,ea) end
-            if a.cl and b.cl then r.cl=E.lC3(a.cl,b.cl,ea) end
-            if a.pos and b.pos then r.pos=E.lU2(a.pos,b.pos,ea) end
-            if a.rot~=nil and b.rot~=nil then r.rot=E.lN(a.rot,b.rot,ea) end
-            result[k]=r
+    for _, j in ipairs(E.joints) do
+        if E.jValid(j) then
+            pcall(function()
+                if j.t == "m6d" then
+                    j.inst.C0 = j.origC0
+                    j.inst.C1 = j.origC1
+                elseif j.t == "bone" then
+                    j.inst.CFrame = j.origCF
+                    j.inst.Transform = j.origTrans
+                elseif j.t == "part" then
+                    j.inst.CFrame = j.origCF
+                    j.inst.Size = j.origSize
+                    j.inst.Color = j.origColor
+                    j.inst.Transparency = j.origTrans
+                elseif j.t == "gui" then
+                    j.inst.Position = j.oP
+                    j.inst.Size = j.oS
+                    j.inst.Rotation = j.oR
+                elseif j.t == "light" then
+                    j.inst.Brightness = j.origBright
+                    j.inst.Color = j.origColor
+                    j.inst.Enabled = j.origEnabled
+                elseif j.t == "particle" then
+                    j.inst.Enabled = j.origEnabled
+                    j.inst.Rate = j.origRate
+                elseif j.t == "sound" then
+                    j.inst.Volume = j.origVol
+                    j.inst.PlaybackSpeed = j.origPitch
+                elseif j.t == "mesh" then
+                    j.inst.Scale = j.origScale
+                    j.inst.Offset = j.origOffset
+                end
+            end)
         end
     end
+    print("[Snow] 🔄 Pose reset")
+end
+
+-- ══════════════════════════════════════
+-- EVALUATION (Interpolates between keyframes)
+-- ══════════════════════════════════════
+
+function E.eval(time)
+    local n = #E.kfs
+    if n == 0 then return nil end
+    if n == 1 then return E.kfs[1].j end
+    
+    local p, nx = nil, nil
+    for i = 1, n do
+        if E.kfs[i].t <= time then p = E.kfs[i] end
+        if E.kfs[i].t >= time and nx == nil then nx = E.kfs[i] end
+    end
+    
+    if not p then p = E.kfs[1] end
+    if not nx then nx = E.kfs[n] end
+    if p == nx then return p.j end
+    
+    local diff = nx.t - p.t
+    if diff <= 0 then return p.j end
+    
+    local raw = math.clamp((time - p.t) / diff, 0, 1)
+    local result = {}
+    
+    local all = {}
+    for k in pairs(p.j) do all[k] = true end
+    for k in pairs(nx.j) do all[k] = true end
+    
+    for k in pairs(all) do
+        local a, b = p.j[k], nx.j[k]
+        
+        if a and not b then
+            result[k] = a
+        elseif b and not a then
+            result[k] = b
+        elseif a and b then
+            local ea = E.ease(raw, b.es or "Linear", b.ed or "InOut")
+            local r = {es = b.es, ed = b.ed}
+            
+            -- CFrame
+            if a.cf and b.cf then r.cf = E.lCF(a.cf, b.cf, ea) end
+            if a.c1 and b.c1 then r.c1 = E.lCF(a.c1, b.c1, ea) end
+            if a.trans and b.trans then r.trans = E.lCF(a.trans, b.trans, ea) end
+            
+            -- Size (Vector3 or UDim2)
+            if a.sz and b.sz then
+                if typeof(a.sz) == "Vector3" then
+                    r.sz = E.lV3(a.sz, b.sz, ea)
+                elseif typeof(a.sz) == "UDim2" then
+                    r.sz = E.lU2(a.sz, b.sz, ea)
+                end
+            end
+            
+            -- Numbers
+            if a.tr ~= nil and b.tr ~= nil then r.tr = E.lN(a.tr, b.tr, ea) end
+            if a.rot ~= nil and b.rot ~= nil then r.rot = E.lN(a.rot, b.rot, ea) end
+            if a.bright ~= nil and b.bright ~= nil then r.bright = E.lN(a.bright, b.bright, ea) end
+            if a.range ~= nil and b.range ~= nil then r.range = E.lN(a.range, b.range, ea) end
+            if a.angle ~= nil and b.angle ~= nil then r.angle = E.lN(a.angle, b.angle, ea) end
+            if a.rate ~= nil and b.rate ~= nil then r.rate = E.lN(a.rate, b.rate, ea) end
+            if a.vol ~= nil and b.vol ~= nil then r.vol = E.lN(a.vol, b.vol, ea) end
+            if a.pitch ~= nil and b.pitch ~= nil then r.pitch = E.lN(a.pitch, b.pitch, ea) end
+            if a.w0 ~= nil and b.w0 ~= nil then r.w0 = E.lN(a.w0, b.w0, ea) end
+            if a.w1 ~= nil and b.w1 ~= nil then r.w1 = E.lN(a.w1, b.w1, ea) end
+            if a.life ~= nil and b.life ~= nil then r.life = E.lN(a.life, b.life, ea) end
+            
+            -- Colors
+            if a.cl and b.cl then r.cl = E.lC3(a.cl, b.cl, ea) end
+            
+            -- UDim2
+            if a.pos and b.pos then r.pos = E.lU2(a.pos, b.pos, ea) end
+            
+            -- Vector3
+            if a.scale and b.scale then r.scale = E.lV3(a.scale, b.scale, ea) end
+            if a.offset and b.offset then r.offset = E.lV3(a.offset, b.offset, ea) end
+            
+            -- Booleans (snap at halfway)
+            if a.enabled ~= nil and b.enabled ~= nil then
+                r.enabled = ea >= 0.5 and b.enabled or a.enabled
+            end
+            
+            result[k] = r
+        end
+    end
+    
     return result
 end
 
--- APPLY: aplica dados nos joints (SEM mover camera)
--- Substitua a função E.apply por:
+-- ══════════════════════════════════════
+-- APPLY (Applies interpolated data to joints)
+-- ══════════════════════════════════════
 
 function E.apply(data)
     if not data then return end
     
-    for _,j in ipairs(E.joints) do
-        if not E.jValid(j) then continue end
-        
+    for _, j in ipairs(E.joints) do
         local d = data[j.name]
-        if not d then continue end
-        
-        pcall(function()
-            if j.t == "m6d" then
-                -- Motor6D: só mexe no C0
-                if d.cf and typeof(d.cf) == "CFrame" then
-                    j.inst.C0 = d.cf
+        if d and E.jValid(j) then
+            pcall(function()
+                if j.t == "m6d" then
+                    if d.cf then j.inst.C0 = d.cf end
+                    if d.c1 then j.inst.C1 = d.c1 end
+                    
+                elseif j.t == "bone" then
+                    if d.cf then j.inst.CFrame = d.cf end
+                    if d.trans then j.inst.Transform = d.trans end
+                    
+                elseif j.t == "part" then
+                    if not E.isLocalChar(j.inst) then
+                        if d.cf then j.inst.CFrame = d.cf end
+                        if d.sz and typeof(d.sz) == "Vector3" then j.inst.Size = d.sz end
+                        if d.tr ~= nil then j.inst.Transparency = d.tr end
+                        if d.cl then j.inst.Color = d.cl end
+                    end
+                    
+                elseif j.t == "gui" then
+                    if d.pos then j.inst.Position = d.pos end
+                    if d.sz then j.inst.Size = d.sz end
+                    if d.rot ~= nil then j.inst.Rotation = d.rot end
+                    if d.tr ~= nil then j.inst.BackgroundTransparency = d.tr end
+                    if d.cl then j.inst.BackgroundColor3 = d.cl end
+                    
+                elseif j.t == "light" then
+                    if d.bright ~= nil then j.inst.Brightness = d.bright end
+                    if d.cl then j.inst.Color = d.cl end
+                    if d.enabled ~= nil then j.inst.Enabled = d.enabled end
+                    if d.range ~= nil and j.inst:IsA("PointLight") then j.inst.Range = d.range end
+                    if d.angle ~= nil and j.inst:IsA("SpotLight") then j.inst.Angle = d.angle end
+                    
+                elseif j.t == "particle" then
+                    if d.enabled ~= nil then j.inst.Enabled = d.enabled end
+                    if d.rate ~= nil then j.inst.Rate = d.rate end
+                    
+                elseif j.t == "sound" then
+                    if d.vol ~= nil then j.inst.Volume = d.vol end
+                    if d.pitch ~= nil then j.inst.PlaybackSpeed = d.pitch end
+                    
+                elseif j.t == "mesh" then
+                    if d.scale then j.inst.Scale = d.scale end
+                    if d.offset then j.inst.Offset = d.offset end
+                    
+                elseif j.t == "beam" then
+                    if d.enabled ~= nil then j.inst.Enabled = d.enabled end
+                    if d.w0 ~= nil then j.inst.Width0 = d.w0 end
+                    if d.w1 ~= nil then j.inst.Width1 = d.w1 end
+                    
+                elseif j.t == "trail" then
+                    if d.enabled ~= nil then j.inst.Enabled = d.enabled end
+                    if d.life ~= nil then j.inst.Lifetime = d.life end
                 end
-            elseif j.t == "part" then
-                -- Part solta (não do character local)
-                if not E.isLocalChar(j.inst) then
-                    if d.cf and typeof(d.cf) == "CFrame" then
-                        j.inst.CFrame = d.cf
-                    end
-                    if d.sz and typeof(d.sz) == "Vector3" then
-                        j.inst.Size = d.sz
-                    end
-                    if d.tr ~= nil then
-                        j.inst.Transparency = d.tr
-                    end
-                    if d.cl and typeof(d.cl) == "Color3" then
-                        j.inst.Color = d.cl
-                    end
-                end
-            elseif j.t == "gui" then
-                if d.pos then j.inst.Position = d.pos end
-                if d.sz then j.inst.Size = d.sz end
-                if d.rot ~= nil then j.inst.Rotation = d.rot end
-                if d.tr ~= nil then j.inst.BackgroundTransparency = d.tr end
-            end
-        end)
+            end)
+        end
     end
 end
 
-function E.goTo(t) E.time=math.max(0,t) local d=E.eval(E.time) if d then E.apply(d) end end
+-- ══════════════════════════════════════
+-- PLAYBACK
+-- ══════════════════════════════════════
 
--- Substitua a função E.play por:
+function E.goTo(t)
+    E.time = math.max(0, t)
+    local d = E.eval(E.time)
+    if d then E.apply(d) end
+end
 
 function E.play()
     if E.playing then return end
-    if #E.kfs < 1 then 
-        print("[Snow] No keyframes to play!") 
-        return 
+    if #E.kfs < 1 then
+        print("[Snow] ❌ No keyframes to play!")
+        return
     end
     if #E.joints == 0 then
-        print("[Snow] No joints! Select a target first.")
+        print("[Snow] ❌ No joints! Select a target first.")
         return
     end
     
@@ -591,17 +1213,18 @@ function E.play()
     local startTime = E.time
     local maxTime = E.maxT()
     
-    -- Desconecta conexão anterior
-    if E.conn then 
-        pcall(function() E.conn:Disconnect() end) 
-        E.conn = nil 
+    if E.conn then
+        pcall(function() E.conn:Disconnect() end)
+        E.conn = nil
     end
+    
+    print("[Snow] ▶️ Playing animation...")
     
     E.conn = S.RS.Heartbeat:Connect(function()
         if not E.playing then
-            if E.conn then 
-                pcall(function() E.conn:Disconnect() end) 
-                E.conn = nil 
+            if E.conn then
+                pcall(function() E.conn:Disconnect() end)
+                E.conn = nil
             end
             return
         end
@@ -617,28 +1240,32 @@ function E.play()
             else
                 E.time = maxTime
                 E.playing = false
-                if E.conn then 
-                    pcall(function() E.conn:Disconnect() end) 
-                    E.conn = nil 
+                print("[Snow] ⏹️ Animation finished")
+                if E.conn then
+                    pcall(function() E.conn:Disconnect() end)
+                    E.conn = nil
                 end
             end
         end
         
-        -- Avalia e aplica
         local data = E.eval(E.time)
-        if data then 
-            E.apply(data) 
-        end
+        if data then E.apply(data) end
     end)
-    
-    print("[Snow] Playing animation...")
 end
 
 function E.stop()
-    E.playing=false
-    if E.conn then pcall(function() E.conn:Disconnect() end) E.conn=nil end
+    E.playing = false
+    if E.conn then
+        pcall(function() E.conn:Disconnect() end)
+        E.conn = nil
+    end
+    print("[Snow] ⏹️ Stopped")
 end
-function E.pause() E.playing=false end
+
+function E.pause()
+    E.playing = false
+    print("[Snow] ⏸️ Paused")
+end
 
 print("[Snow] P3 OK")
 
@@ -1053,50 +1680,75 @@ function S.TB(txt,ord,col,cb)
 end
 
 -- SELECT - CRIAR O BOTÃO PRIMEIRO
-S.selBtn = S.TB("🎯Select",1,C.purple,nil)
-S.selActive = false 
-S.selC = nil
-
 S.selBtn.MouseButton1Click:Connect(function()
-    if S.selActive then 
-        S.selActive = false 
-        if S.selC then pcall(function() S.selC:Disconnect() end) S.selC = nil end 
-        S.selBtn.Text = "🎯Select" 
-        S.selBtn.BackgroundColor3 = C.purple 
-        return 
+    if S.selActive then
+        S.selActive = false
+        if S.selC then pcall(function() S.selC:Disconnect() end) S.selC = nil end
+        S.selBtn.Text = "🎯Select"
+        S.selBtn.BackgroundColor3 = C.purple
+        return
     end
-    S.selActive = true 
-    S.selBtn.Text = "🎯Click..." 
+    S.selActive = true
+    S.selBtn.Text = "🎯Click..."
     S.selBtn.BackgroundColor3 = C.orange
+    
     S.selC = S.Mouse.Button1Down:Connect(function()
         local h = S.Mouse.Target
         if h then
+            -- Ignora Baseplate e Terrain (só pelo Explorer)
+            local ignoredNames = {"Baseplate", "Base", "Terrain", "SpawnLocation"}
+            local ignored = false
+            for _, name in ipairs(ignoredNames) do
+                if h.Name == name or h:IsA("Terrain") then
+                    ignored = true
+                    break
+                end
+            end
+            
+            if ignored then
+                print("[Snow] ⚠️ Use Explorer to select: " .. h.Name)
+                S.selBtn.Text = "🎯Select"
+                S.selBtn.BackgroundColor3 = C.purple
+                S.selActive = false
+                if S.selC then pcall(function() S.selC:Disconnect() end) S.selC = nil end
+                return
+            end
+            
             local t = h
             local current = h
             
-            for i = 1, 10 do
-                if current.Parent == nil or current.Parent == game then
+            -- Procura Model pai com Humanoid ou Motor6D
+            for i = 1, 15 do
+                if current.Parent == nil or current.Parent == game or current.Parent == workspace then
                     break
                 end
+                current = current.Parent
                 if current:IsA("Model") then
                     local hasHumanoid = current:FindFirstChildOfClass("Humanoid")
-                    local hasMotor = current:FindFirstDescendantWhichIsA("Motor6D")
+                    local hasMotor = false
+                    pcall(function()
+                        hasMotor = current:FindFirstDescendantWhichIsA("Motor6D") ~= nil
+                    end)
                     if hasHumanoid or hasMotor then
                         t = current
                         break
                     end
                 end
-                current = current.Parent
             end
             
-            if t == h and h.Parent and h.Parent:IsA("Model") and h.Parent ~= workspace then
-                t = h.Parent
+            -- Se não encontrou rig, usa o Model pai mais próximo
+            if t == h then
+                if h.Parent and h.Parent:IsA("Model") and h.Parent ~= workspace then
+                    t = h.Parent
+                end
             end
             
+            -- Scan
             E.scan(t)
             
-            local nm = t.Name 
-            S.selBtn.Text = "🎯"..nm:sub(1, math.min(#nm, 8))
+            -- Update button
+            local nm = t.Name
+            S.selBtn.Text = "🎯" .. nm:sub(1, math.min(#nm, 8))
             
             if #E.joints > 0 then
                 S.selBtn.BackgroundColor3 = C.green
@@ -1105,7 +1757,7 @@ S.selBtn.MouseButton1Click:Connect(function()
             end
         end
         
-        S.selActive = false 
+        S.selActive = false
         if S.selC then pcall(function() S.selC:Disconnect() end) S.selC = nil end
     end)
 end)
@@ -1143,6 +1795,54 @@ S.TB("CE🖋️",25,C.purple,function() pcall(function() S.SG.CurveEd.Visible=tr
 S.TB("📚Guide",26,Color3.fromRGB(50,140,200),function() pcall(function() S.SG.GuideMenu.Visible=true end) end)
 
 spawn(function() wait(0.1) local tw=0 for _,ch in ipairs(S.tbs:GetChildren()) do if ch:IsA("TextButton") then tw=tw+ch.Size.X.Offset+2 end end S.tbs.CanvasSize=UDim2.new(0,tw+10,0,0) end)
+
+-- Seleção via Explorer (funciona para tudo incluindo Baseplate)
+spawn(function()
+    while S.SG and S.SG.Parent do
+        pcall(function()
+            if S.Sel then
+                local sel = S.Sel:Get()
+                if sel and #sel > 0 then
+                    local obj = sel[1]
+                    if obj ~= E.target then
+                        if obj:IsA("Model") or obj:IsA("BasePart") or obj:IsA("Folder") then
+                            E.scan(obj)
+                            local nm = obj.Name
+                            S.selBtn.Text = "🎯" .. nm:sub(1, math.min(#nm, 8))
+                            if #E.joints > 0 then
+                                S.selBtn.BackgroundColor3 = C.green
+                            else
+                                S.selBtn.BackgroundColor3 = C.red
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+        wait(0.3)
+    end
+end)
+
+-- Botão Pro Mode (Motor6D automático)
+S.proBtn = S.TB("🦴Pro",27,E.proMode and C.green or C.bg3,nil)
+S.proBtn.MouseButton1Click:Connect(function()
+    E.proMode = not E.proMode
+    S.proBtn.BackgroundColor3 = E.proMode and C.green or C.bg3
+    S.proBtn.Text = E.proMode and "🦴Pro✅" or "🦴Pro"
+    print("[Snow] Pro Mode: " .. (E.proMode and "ON (auto Motor6D)" or "OFF (CFrame)"))
+    -- Re-scan if target exists
+    if E.target then
+        E.scan(E.target)
+    end
+end)
+
+-- Botão para remover motors criados
+S.TB("🗑️Unrig",28,C.red,function()
+    if E.target then
+        E.removeMotors(E.target)
+        E.scan(E.target)
+    end
+end)
 
 print("[Snow] P6 OK")
 
