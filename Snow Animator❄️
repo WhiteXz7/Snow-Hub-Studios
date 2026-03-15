@@ -1048,10 +1048,15 @@ function S.TB(txt,ord,col,cb)
     S.Cn(b,4)
     b.MouseEnter:Connect(function() pcall(function() S.TS:Create(b,TweenInfo.new(0.08),{BackgroundColor3=C.blue}):Play() end) end)
     b.MouseLeave:Connect(function() pcall(function() S.TS:Create(b,TweenInfo.new(0.08),{BackgroundColor3=col or C.bg3}):Play() end) end)
-    if cb then b.MouseButton1Click:Connect(cb) end return b
+    if cb then b.MouseButton1Click:Connect(cb) end 
+    return b
 end
 
--- SELECT
+-- SELECT - CRIAR O BOTÃO PRIMEIRO
+S.selBtn = S.TB("🎯Select",1,C.purple,nil)
+S.selActive = false 
+S.selC = nil
+
 S.selBtn.MouseButton1Click:Connect(function()
     if S.selActive then 
         S.selActive = false 
@@ -1066,11 +1071,9 @@ S.selBtn.MouseButton1Click:Connect(function()
     S.selC = S.Mouse.Button1Down:Connect(function()
         local h = S.Mouse.Target
         if h then
-            -- Encontrar o Model/Rig correto
             local t = h
             local current = h
             
-            -- Sobe na hierarquia procurando um Model com Humanoid ou Motor6D
             for i = 1, 10 do
                 if current.Parent == nil or current.Parent == game then
                     break
@@ -1086,15 +1089,12 @@ S.selBtn.MouseButton1Click:Connect(function()
                 current = current.Parent
             end
             
-            -- Se não encontrou rig, usa o parent Model mais próximo
             if t == h and h.Parent and h.Parent:IsA("Model") and h.Parent ~= workspace then
                 t = h.Parent
             end
             
-            -- Scan do target
             E.scan(t)
             
-            -- Atualiza o botão
             local nm = t.Name 
             S.selBtn.Text = "🎯"..nm:sub(1, math.min(#nm, 8))
             
