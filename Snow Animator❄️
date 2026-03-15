@@ -1624,62 +1624,113 @@ local C = S.C
 local N = S.N
 
 local AF = N("Frame",{Name="AnimFrame",Size=UDim2.new(1,0,0,330),Position=UDim2.new(0,0,1,-330),BackgroundColor3=C.bg,BorderSizePixel=0,Visible=false,Parent=S.SG})
-S.AF=AF S.St(AF,C.bg3)
+S.AF = AF
+S.St(AF, C.bg3)
 
 -- Header
-local hdr=N("Frame",{Size=UDim2.new(1,0,0,28),BackgroundColor3=Color3.fromRGB(12,14,22),BorderSizePixel=0,Parent=AF})
+local hdr = N("Frame",{Size=UDim2.new(1,0,0,28),BackgroundColor3=Color3.fromRGB(12,14,22),BorderSizePixel=0,Parent=AF})
 N("TextLabel",{Size=UDim2.new(0,180,1,0),Position=UDim2.new(0,6,0,0),BackgroundTransparency=1,Text="❄️ Snow Animator Pro",TextColor3=C.snow,TextSize=12,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Left,Parent=hdr})
 
-local hx=190
+local hx = 190
 local function HB(txt,col,w)
-    local b=N("TextButton",{Size=UDim2.new(0,w or 62,0,18),Position=UDim2.new(0,hx,0,5),BackgroundColor3=col or C.bg3,Text=txt,TextColor3=C.white,TextSize=8,Font=Enum.Font.GothamBold,Parent=hdr})
-    S.Cn(b,4) hx=hx+(w or 62)+4 return b
-end
-
-S.vmBtn=HB("Global🌎",C.green,68)
-S.vmBtn.MouseButton1Click:Connect(function()
-    if E.viewMode=="Global" then E.viewMode="Local" S.vmBtn.Text="Local📍" S.vmBtn.BackgroundColor3=C.orange
-    else E.viewMode="Global" S.vmBtn.Text="Global🌎" S.vmBtn.BackgroundColor3=C.green end
-end)
-
-S.modeBtn=HB("KF Mode",C.blue,62)
-S.modeBtn.MouseButton1Click:Connect(function()
-    E.twMode=not E.twMode
-    S.modeBtn.Text=E.twMode and "Tween" or "KF Mode"
-    S.modeBtn.BackgroundColor3=E.twMode and C.purple or C.blue
-    pcall(function() if S.twP then S.twP.Visible=E.twMode end if S.kfP then S.kfP.Visible=not E.twMode end end)
-end)
-
-S.fpsL=N("TextLabel",{Size=UDim2.new(0,36,0,18),Position=UDim2.new(0,hx,0,5),BackgroundColor3=C.bg2,Text="60",TextColor3=C.cyan,TextSize=8,Font=Enum.Font.Code,Parent=hdr}) S.Cn(S.fpsL,3)
-
--- Close -> hub
-local clA=N("TextButton",{Size=UDim2.new(0,20,0,18),Position=UDim2.new(1,-26,0,5),BackgroundColor3=C.red,Text="✕",TextColor3=C.white,TextSize=9,Font=Enum.Font.GothamBold,Parent=hdr}) S.Cn(clA,4)
-clA.MouseButton1Click:Connect(function() AF.Visible=false S.Hub.Visible=true S.Hub.Size=UDim2.new(0,460,0,560) S.Hub.Position=UDim2.new(0.5,-230,0.5,-280) end)
-
-local mnA=N("TextButton",{Size=UDim2.new(0,20,0,18),Position=UDim2.new(1,-50,0,5),BackgroundColor3=C.orange,Text="—",TextColor3=C.white,TextSize=9,Font=Enum.Font.GothamBold,Parent=hdr}) S.Cn(mnA,4)
-local mst=false mnA.MouseButton1Click:Connect(function() mst=not mst S.TS:Create(AF,TweenInfo.new(0.2),{Size=UDim2.new(1,0,0,mst and 28 or 330)}):Play() end)
-
--- Drag
-local dg,ds,dp=false,nil,nil
-hdr.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then dg=true ds=i.Position dp=AF.Position i.Changed:Connect(function() if i.UserInputState==Enum.UserInputState.End then dg=false end end) end end)
-S.UIS.InputChanged:Connect(function(i) if dg and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then pcall(function() local d=i.Position-ds AF.Position=UDim2.new(dp.X.Scale,dp.X.Offset+d.X,dp.Y.Scale,dp.Y.Offset+d.Y) end) end end)
-
--- TOOLBAR
-local tb=N("Frame",{Size=UDim2.new(1,0,0,32),Position=UDim2.new(0,0,0,28),BackgroundColor3=C.bg2,BorderSizePixel=0,Parent=AF})
-S.tbs=N("ScrollingFrame",{Size=UDim2.new(1,-4,1,-4),Position=UDim2.new(0,2,0,2),BackgroundTransparency=1,ScrollBarThickness=3,ScrollBarImageColor3=C.blue,ScrollingDirection=Enum.ScrollingDirection.X,CanvasSize=UDim2.new(0,1800,0,0),Parent=tb})
-pcall(function() S.tbs.ElasticBehavior=Enum.ElasticBehavior.Never end)
-N("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,Padding=UDim.new(0,2),VerticalAlignment=Enum.VerticalAlignment.Center,SortOrder=Enum.SortOrder.LayoutOrder,Parent=S.tbs})
-
-function S.TB(txt,ord,col,cb)
-    local b=N("TextButton",{Size=UDim2.new(0,math.max(#txt*6+10,38),0,24),BackgroundColor3=col or C.bg3,Text=txt,TextColor3=C.text,TextSize=8,Font=Enum.Font.GothamBold,LayoutOrder=ord,AutoButtonColor=false,Parent=S.tbs})
+    local b = N("TextButton",{Size=UDim2.new(0,w or 62,0,18),Position=UDim2.new(0,hx,0,5),BackgroundColor3=col or C.bg3,Text=txt,TextColor3=C.white,TextSize=8,Font=Enum.Font.GothamBold,Parent=hdr})
     S.Cn(b,4)
-    b.MouseEnter:Connect(function() pcall(function() S.TS:Create(b,TweenInfo.new(0.08),{BackgroundColor3=C.blue}):Play() end) end)
-    b.MouseLeave:Connect(function() pcall(function() S.TS:Create(b,TweenInfo.new(0.08),{BackgroundColor3=col or C.bg3}):Play() end) end)
-    if cb then b.MouseButton1Click:Connect(cb) end 
+    hx = hx + (w or 62) + 4
     return b
 end
 
--- SELECT - CRIAR O BOTÃO PRIMEIRO
+S.vmBtn = HB("Global🌎",C.green,68)
+S.vmBtn.MouseButton1Click:Connect(function()
+    if E.viewMode == "Global" then
+        E.viewMode = "Local"
+        S.vmBtn.Text = "Local📍"
+        S.vmBtn.BackgroundColor3 = C.orange
+    else
+        E.viewMode = "Global"
+        S.vmBtn.Text = "Global🌎"
+        S.vmBtn.BackgroundColor3 = C.green
+    end
+end)
+
+S.modeBtn = HB("KF Mode",C.blue,62)
+S.modeBtn.MouseButton1Click:Connect(function()
+    E.twMode = not E.twMode
+    S.modeBtn.Text = E.twMode and "Tween" or "KF Mode"
+    S.modeBtn.BackgroundColor3 = E.twMode and C.purple or C.blue
+    pcall(function()
+        if S.twP then S.twP.Visible = E.twMode end
+        if S.kfP then S.kfP.Visible = not E.twMode end
+    end)
+end)
+
+S.fpsL = N("TextLabel",{Size=UDim2.new(0,36,0,18),Position=UDim2.new(0,hx,0,5),BackgroundColor3=C.bg2,Text="60",TextColor3=C.cyan,TextSize=8,Font=Enum.Font.Code,Parent=hdr})
+S.Cn(S.fpsL,3)
+
+-- Close -> hub
+local clA = N("TextButton",{Size=UDim2.new(0,20,0,18),Position=UDim2.new(1,-26,0,5),BackgroundColor3=C.red,Text="✕",TextColor3=C.white,TextSize=9,Font=Enum.Font.GothamBold,Parent=hdr})
+S.Cn(clA,4)
+clA.MouseButton1Click:Connect(function()
+    AF.Visible = false
+    S.Hub.Visible = true
+    S.Hub.Size = UDim2.new(0,460,0,560)
+    S.Hub.Position = UDim2.new(0.5,-230,0.5,-280)
+end)
+
+local mnA = N("TextButton",{Size=UDim2.new(0,20,0,18),Position=UDim2.new(1,-50,0,5),BackgroundColor3=C.orange,Text="—",TextColor3=C.white,TextSize=9,Font=Enum.Font.GothamBold,Parent=hdr})
+S.Cn(mnA,4)
+local mst = false
+mnA.MouseButton1Click:Connect(function()
+    mst = not mst
+    S.TS:Create(AF,TweenInfo.new(0.2),{Size=UDim2.new(1,0,0,mst and 28 or 330)}):Play()
+end)
+
+-- Drag
+local dg,ds,dp = false,nil,nil
+hdr.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        dg = true
+        ds = i.Position
+        dp = AF.Position
+        i.Changed:Connect(function()
+            if i.UserInputState == Enum.UserInputState.End then dg = false end
+        end)
+    end
+end)
+S.UIS.InputChanged:Connect(function(i)
+    if dg and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+        pcall(function()
+            local d = i.Position - ds
+            AF.Position = UDim2.new(dp.X.Scale, dp.X.Offset + d.X, dp.Y.Scale, dp.Y.Offset + d.Y)
+        end)
+    end
+end)
+
+-- TOOLBAR
+local tb = N("Frame",{Size=UDim2.new(1,0,0,32),Position=UDim2.new(0,0,0,28),BackgroundColor3=C.bg2,BorderSizePixel=0,Parent=AF})
+S.tbs = N("ScrollingFrame",{Size=UDim2.new(1,-4,1,-4),Position=UDim2.new(0,2,0,2),BackgroundTransparency=1,ScrollBarThickness=3,ScrollBarImageColor3=C.blue,ScrollingDirection=Enum.ScrollingDirection.X,CanvasSize=UDim2.new(0,2000,0,0),Parent=tb})
+pcall(function() S.tbs.ElasticBehavior = Enum.ElasticBehavior.Never end)
+N("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,Padding=UDim.new(0,2),VerticalAlignment=Enum.VerticalAlignment.Center,SortOrder=Enum.SortOrder.LayoutOrder,Parent=S.tbs})
+
+function S.TB(txt,ord,col,cb)
+    local b = N("TextButton",{Size=UDim2.new(0,math.max(#txt*6+10,38),0,24),BackgroundColor3=col or C.bg3,Text=txt,TextColor3=C.text,TextSize=8,Font=Enum.Font.GothamBold,LayoutOrder=ord,AutoButtonColor=false,Parent=S.tbs})
+    S.Cn(b,4)
+    b.MouseEnter:Connect(function()
+        pcall(function() S.TS:Create(b,TweenInfo.new(0.08),{BackgroundColor3=C.blue}):Play() end)
+    end)
+    b.MouseLeave:Connect(function()
+        pcall(function() S.TS:Create(b,TweenInfo.new(0.08),{BackgroundColor3=col or C.bg3}):Play() end)
+    end)
+    if cb then b.MouseButton1Click:Connect(cb) end
+    return b
+end
+
+-- ═══════════════════════════════════════
+-- SELECT BUTTON (CRIAR PRIMEIRO!)
+-- ═══════════════════════════════════════
+S.selBtn = S.TB("🎯Select",1,C.purple,nil)
+S.selActive = false
+S.selC = nil
+
 S.selBtn.MouseButton1Click:Connect(function()
     if S.selActive then
         S.selActive = false
@@ -1688,6 +1739,7 @@ S.selBtn.MouseButton1Click:Connect(function()
         S.selBtn.BackgroundColor3 = C.purple
         return
     end
+    
     S.selActive = true
     S.selBtn.Text = "🎯Click..."
     S.selBtn.BackgroundColor3 = C.orange
@@ -1762,41 +1814,103 @@ S.selBtn.MouseButton1Click:Connect(function()
     end)
 end)
 
--- ALL TOOLBAR BUTTONS
+-- ═══════════════════════════════════════
+-- TOOLBAR BUTTONS
+-- ═══════════════════════════════════════
 S.TB("+KEY",2,C.kf,function() E.addKF() end)
-S.TB("VEL-",3,nil,function() E.speed=math.max(0.1,math.floor((E.speed-0.1)*10+.5)/10) end)
-S.TB("VEL+",4,nil,function() E.speed=math.min(10,math.floor((E.speed+0.1)*10+.5)/10) end)
-S.ati=1 S.atBtn=S.TB("Action1",5,C.cyan,nil)
-S.atBtn.MouseButton1Click:Connect(function() S.ati=S.ati%#E.aTypes+1 E.animType=E.aTypes[S.ati] S.atBtn.Text=E.animType end)
+S.TB("VEL-",3,nil,function() E.speed = math.max(0.1, math.floor((E.speed - 0.1) * 10 + 0.5) / 10) end)
+S.TB("VEL+",4,nil,function() E.speed = math.min(10, math.floor((E.speed + 0.1) * 10 + 0.5) / 10) end)
+
+S.ati = 1
+S.atBtn = S.TB("Action1",5,C.cyan,nil)
+S.atBtn.MouseButton1Click:Connect(function()
+    S.ati = S.ati % #E.aTypes + 1
+    E.animType = E.aTypes[S.ati]
+    S.atBtn.Text = E.animType
+end)
+
 S.TB("Undo↩️",6,nil,function() E.undo() E.goTo(E.time) end)
 S.TB("Redo↪️",7,nil,function() E.redo() E.goTo(E.time) end)
 S.TB("Copy📋",8,nil,function() E.copyKF() end)
 S.TB("Paste📋",9,nil,function() E.pasteKF() end)
 S.TB("Clear🗑️",10,C.red,function() E.clearAll() end)
-S.ipi=1 S.ipBtn=S.TB("Linear",11,nil,nil)
-S.ipBtn.MouseButton1Click:Connect(function() S.ipi=S.ipi%#E.iModes+1 E.interp=E.iModes[S.ipi] S.ipBtn.Text=E.interp end)
+
+S.ipi = 1
+S.ipBtn = S.TB("Linear",11,nil,nil)
+S.ipBtn.MouseButton1Click:Connect(function()
+    S.ipi = S.ipi % #E.iModes + 1
+    E.interp = E.iModes[S.ipi]
+    S.ipBtn.Text = E.interp
+end)
+
 S.TB("Mirror🪞",12,nil,function() E.mirror() end)
 S.TB("Rev⏪",13,nil,function() E.reverseKFs() end)
-S.loopBtn=S.TB("Loop🔁",14,nil,nil)
-S.loopBtn.MouseButton1Click:Connect(function() E.looping=not E.looping S.loopBtn.BackgroundColor3=E.looping and C.green or C.bg3 S.loopBtn.Text=E.looping and "Loop✅" or "Loop🔁" end)
+
+S.loopBtn = S.TB("Loop🔁",14,nil,nil)
+S.loopBtn.MouseButton1Click:Connect(function()
+    E.looping = not E.looping
+    S.loopBtn.BackgroundColor3 = E.looping and C.green or C.bg3
+    S.loopBtn.Text = E.looping and "Loop✅" or "Loop🔁"
+end)
+
 S.TB("Dup📑",15,nil,function() E.dupKF() end)
 S.TB("Scale⏱",16,nil,function() E.scaleT(1.5) end)
 S.TB("DelKF❌",17,nil,function() E.removeKF() end)
-S.TB("MvKF→",18,nil,function() for _,kf in ipairs(E.kfs) do if math.abs(kf.t-E.time)<0.05 then E.pushU() kf.t=kf.t+0.1 break end end table.sort(E.kfs,function(a,b) return a.t<b.t end) end)
+S.TB("MvKF→",18,nil,function()
+    for _, kf in ipairs(E.kfs) do
+        if math.abs(kf.t - E.time) < 0.05 then
+            E.pushU()
+            kf.t = kf.t + 0.1
+            break
+        end
+    end
+    table.sort(E.kfs, function(a, b) return a.t < b.t end)
+end)
 S.TB("Reset🔄",19,nil,function() E.resetPose() end)
 S.TB("Mark📌",20,nil,function() E.addMarker() end)
-S.edi=1 S.edBtn=S.TB("InOut",21,nil,nil)
-S.edBtn.MouseButton1Click:Connect(function() S.edi=S.edi%#E.eDirs+1 E.eDir=E.eDirs[S.edi] S.edBtn.Text=E.eDir end)
-S.akBtn=S.TB("AutoKey🔑",22,nil,nil)
-S.akBtn.MouseButton1Click:Connect(function() E.autoKey=not E.autoKey S.akBtn.BackgroundColor3=E.autoKey and C.orange or C.bg3 end)
-S.TB("Save💾",23,C.green,function() pcall(function() S.SG.SaveMenu.Visible=true end) end)
-S.TB("Export📤",24,C.cyan,function() pcall(function() S.SG.ExportMenu.Visible=true end) end)
-S.TB("CE🖋️",25,C.purple,function() pcall(function() S.SG.CurveEd.Visible=true end) end)
-S.TB("📚Guide",26,Color3.fromRGB(50,140,200),function() pcall(function() S.SG.GuideMenu.Visible=true end) end)
 
-spawn(function() wait(0.1) local tw=0 for _,ch in ipairs(S.tbs:GetChildren()) do if ch:IsA("TextButton") then tw=tw+ch.Size.X.Offset+2 end end S.tbs.CanvasSize=UDim2.new(0,tw+10,0,0) end)
+S.edi = 1
+S.edBtn = S.TB("InOut",21,nil,nil)
+S.edBtn.MouseButton1Click:Connect(function()
+    S.edi = S.edi % #E.eDirs + 1
+    E.eDir = E.eDirs[S.edi]
+    S.edBtn.Text = E.eDir
+end)
 
--- Seleção via Explorer (funciona para tudo incluindo Baseplate)
+S.akBtn = S.TB("AutoKey🔑",22,nil,nil)
+S.akBtn.MouseButton1Click:Connect(function()
+    E.autoKey = not E.autoKey
+    S.akBtn.BackgroundColor3 = E.autoKey and C.orange or C.bg3
+end)
+
+S.TB("Save💾",23,C.green,function() pcall(function() S.SG.SaveMenu.Visible = true end) end)
+S.TB("Export📤",24,C.cyan,function() pcall(function() S.SG.ExportMenu.Visible = true end) end)
+S.TB("CE🖋️",25,C.purple,function() pcall(function() S.SG.CurveEd.Visible = true end) end)
+S.TB("📚Guide",26,Color3.fromRGB(50,140,200),function() pcall(function() S.SG.GuideMenu.Visible = true end) end)
+
+-- Pro Mode Button
+S.proBtn = S.TB("🦴Pro",27,E.proMode and C.green or C.bg3,nil)
+S.proBtn.MouseButton1Click:Connect(function()
+    E.proMode = not E.proMode
+    S.proBtn.BackgroundColor3 = E.proMode and C.green or C.bg3
+    S.proBtn.Text = E.proMode and "🦴Pro✅" or "🦴Pro"
+    print("[Snow] Pro Mode: " .. (E.proMode and "ON (auto Motor6D)" or "OFF (CFrame)"))
+    if E.target then
+        E.scan(E.target)
+    end
+end)
+
+-- Remove auto-created motors
+S.TB("🗑️Unrig",28,C.red,function()
+    if E.target then
+        E.removeMotors(E.target)
+        E.scan(E.target)
+    end
+end)
+
+-- ═══════════════════════════════════════
+-- EXPLORER SELECTION SUPPORT
+-- ═══════════════════════════════════════
 spawn(function()
     while S.SG and S.SG.Parent do
         pcall(function()
@@ -1823,25 +1937,16 @@ spawn(function()
     end
 end)
 
--- Botão Pro Mode (Motor6D automático)
-S.proBtn = S.TB("🦴Pro",27,E.proMode and C.green or C.bg3,nil)
-S.proBtn.MouseButton1Click:Connect(function()
-    E.proMode = not E.proMode
-    S.proBtn.BackgroundColor3 = E.proMode and C.green or C.bg3
-    S.proBtn.Text = E.proMode and "🦴Pro✅" or "🦴Pro"
-    print("[Snow] Pro Mode: " .. (E.proMode and "ON (auto Motor6D)" or "OFF (CFrame)"))
-    -- Re-scan if target exists
-    if E.target then
-        E.scan(E.target)
+-- Update toolbar canvas size
+spawn(function()
+    wait(0.1)
+    local tw = 0
+    for _, ch in ipairs(S.tbs:GetChildren()) do
+        if ch:IsA("TextButton") then
+            tw = tw + ch.Size.X.Offset + 2
+        end
     end
-end)
-
--- Botão para remover motors criados
-S.TB("🗑️Unrig",28,C.red,function()
-    if E.target then
-        E.removeMotors(E.target)
-        E.scan(E.target)
-    end
+    S.tbs.CanvasSize = UDim2.new(0, tw + 20, 0, 0)
 end)
 
 print("[Snow] P6 OK")
