@@ -1128,61 +1128,53 @@ function E.apply(data)
     if not data then return end
     
     for _, j in ipairs(E.joints) do
-        local d = data[j.name]
-        if d and E.jValid(j) then
-            pcall(function()
-                if j.t == "m6d" then
-                    if d.cf then j.inst.C0 = d.cf end
-                    if d.c1 then j.inst.C1 = d.c1 end
-                    
-                elseif j.t == "bone" then
-                    if d.cf then j.inst.CFrame = d.cf end
-                    if d.trans then j.inst.Transform = d.trans end
-                    
-                elseif j.t == "part" then
-                    if not E.isLocalChar(j.inst) then
-                        if d.cf then j.inst.CFrame = d.cf end
-                        if d.sz and typeof(d.sz) == "Vector3" then j.inst.Size = d.sz end
-                        if d.tr ~= nil then j.inst.Transparency = d.tr end
-                        if d.cl then j.inst.Color = d.cl end
-                    end
-                    
-                elseif j.t == "gui" then
-                    if d.pos then j.inst.Position = d.pos end
-                    if d.sz then j.inst.Size = d.sz end
-                    if d.rot ~= nil then j.inst.Rotation = d.rot end
-                    if d.tr ~= nil then j.inst.BackgroundTransparency = d.tr end
-                    if d.cl then j.inst.BackgroundColor3 = d.cl end
-                    
-                elseif j.t == "light" then
-                    if d.bright ~= nil then j.inst.Brightness = d.bright end
-                    if d.cl then j.inst.Color = d.cl end
-                    if d.enabled ~= nil then j.inst.Enabled = d.enabled end
-                    if d.range ~= nil and j.inst:IsA("PointLight") then j.inst.Range = d.range end
-                    if d.angle ~= nil and j.inst:IsA("SpotLight") then j.inst.Angle = d.angle end
-                    
-                elseif j.t == "particle" then
-                    if d.enabled ~= nil then j.inst.Enabled = d.enabled end
-                    if d.rate ~= nil then j.inst.Rate = d.rate end
-                    
-                elseif j.t == "sound" then
-                    if d.vol ~= nil then j.inst.Volume = d.vol end
-                    if d.pitch ~= nil then j.inst.PlaybackSpeed = d.pitch end
-                    
-                elseif j.t == "mesh" then
-                    if d.scale then j.inst.Scale = d.scale end
-                    if d.offset then j.inst.Offset = d.offset end
-                    
-                elseif j.t == "beam" then
-                    if d.enabled ~= nil then j.inst.Enabled = d.enabled end
-                    if d.w0 ~= nil then j.inst.Width0 = d.w0 end
-                    if d.w1 ~= nil then j.inst.Width1 = d.w1 end
-                    
-                elseif j.t == "trail" then
-                    if d.enabled ~= nil then j.inst.Enabled = d.enabled end
-                    if d.life ~= nil then j.inst.Lifetime = d.life end
+        if j and j.inst then
+            local ok, exists = pcall(function() return j.inst.Parent ~= nil end)
+            if ok and exists then
+                local d = data[j.name]
+                if d then
+                    pcall(function()
+                        if j.t == "m6d" then
+                            if d.cf then j.inst.C0 = d.cf end
+                            if d.c1 then j.inst.C1 = d.c1 end
+                        elseif j.t == "bone" then
+                            if d.cf then j.inst.CFrame = d.cf end
+                            if d.trans then j.inst.Transform = d.trans end
+                        elseif j.t == "part" and not E.isLocalChar(j.inst) then
+                            if d.cf then j.inst.CFrame = d.cf end
+                            if d.sz and typeof(d.sz) == "Vector3" then j.inst.Size = d.sz end
+                            if d.tr ~= nil then j.inst.Transparency = d.tr end
+                            if d.cl then j.inst.Color = d.cl end
+                        elseif j.t == "gui" then
+                            if d.pos then j.inst.Position = d.pos end
+                            if d.sz then j.inst.Size = d.sz end
+                            if d.rot ~= nil then j.inst.Rotation = d.rot end
+                            if d.tr ~= nil then j.inst.BackgroundTransparency = d.tr end
+                            if d.cl then j.inst.BackgroundColor3 = d.cl end
+                        elseif j.t == "light" then
+                            if d.bright ~= nil then j.inst.Brightness = d.bright end
+                            if d.cl then j.inst.Color = d.cl end
+                            if d.enabled ~= nil then j.inst.Enabled = d.enabled end
+                        elseif j.t == "particle" then
+                            if d.enabled ~= nil then j.inst.Enabled = d.enabled end
+                            if d.rate ~= nil then j.inst.Rate = d.rate end
+                        elseif j.t == "sound" then
+                            if d.vol ~= nil then j.inst.Volume = d.vol end
+                            if d.pitch ~= nil then j.inst.PlaybackSpeed = d.pitch end
+                        elseif j.t == "mesh" then
+                            if d.scale then j.inst.Scale = d.scale end
+                            if d.offset then j.inst.Offset = d.offset end
+                        elseif j.t == "beam" then
+                            if d.enabled ~= nil then j.inst.Enabled = d.enabled end
+                            if d.w0 ~= nil then j.inst.Width0 = d.w0 end
+                            if d.w1 ~= nil then j.inst.Width1 = d.w1 end
+                        elseif j.t == "trail" then
+                            if d.enabled ~= nil then j.inst.Enabled = d.enabled end
+                            if d.life ~= nil then j.inst.Lifetime = d.life end
+                        end
+                    end)
                 end
-            end)
+            end
         end
     end
 end
