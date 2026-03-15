@@ -158,57 +158,118 @@ end
 
 -- É part do character local? Se sim, NÃO mover CFrame
 function E.isLocalChar(inst)
+    if not inst then return false end
     local char = S.LP.Character
     if not char then return false end
-    return inst:IsDescendantOf(char)
+    local success, result = pcall(function()
+        return inst:IsDescendantOf(char)
+    end)
+    return success and result
 end
-
--- Substitua a função E.scan por:
 
 function E.scan(tgt)
     E.joints = {}
     E.target = tgt
-    if not tgt then return end
+    if not tgt then 
+        print("[Snow] No target provided")
+        return 
+    end
+    
+    print("[Snow] Scanning: "..tgt.Name.." ("..tgt.ClassName..")")
     
     local motorParts = {}
     
-    -- Primeiro: Motor6D (para rigs)
-    for _,c in ipairs(tgt:GetDescendants()) do
-        pcall(function()
-            if c:IsA("Motor6D") and c.Part0 and c.Part1 and c.Parent then
+    -- Método 1: Busca Motor6D diretamente
+    local descendants = tgt:GetDescendants()
+    for i = 1, #descendants do
+        local c = descendants[i]
+        if c:IsA("Motor6D") then
+            if c.Part0 and c.Part1 then
                 table.insert(E.joints, {
-                    t="m6d", 
-                    inst=c, 
-                    name=c.Name,
-                    origC0=c.C0:Clone(), 
-                    origC1=c.C1:Clone()
+                    t = "m6d", 
+                    inst = c, 
+                    name = c.Name,
+                    origC0 = c.C0, 
+                    origC1 = c.C1
                 })
                 motorParts[c.Part0] = true
                 motorParts[c.Part1] = true
+                print("[Snow] Found Motor6D: "..c.Name)
             end
-        end)
+        end
     end
     
-    -- Segundo: Parts soltas (não conectadas por Motor6D e não do char local)
-    for _,c in ipairs(tgt:GetDescendants()) do
-        pcall(function()
-            if c:IsA("BasePart") and not c:IsA("Terrain") and not motorParts[c] then
+    -- Método 2: Se não encontrou Motor6D, busca em locais comuns de rigs
+    if #E.joints == 0 then
+        local searchLocations = {}
+        
+        -- HumanoidRootPart
+        local hrp = tgt:FindFirstChild("HumanoidRootPart")
+        if hrp then table.insert(searchLocations, hrp) end
+        
+        -- Torso / UpperTorso
+        local torso = tgt:FindFirstChild("Torso") or tgt:FindFirstChild("UpperTorso")
+        if torso then table.insert(searchLocations, torso) end
+        
+        -- Head
+        local head = tgt:FindFirstChild("Head")
+        if head then table.insert(searchLocations, head) end
+        
+        -- Busca em todas as parts
+        for i = 1, #descendants do
+            local c = descendants[i]
+            if c:IsA("BasePart") then
+                table.insert(searchLocations, c)
+            end
+        end
+        
+        for _, loc in ipairs(searchLocations) do
+            for _, child in ipairs(loc:GetChildren()) do
+                if child:IsA("Motor6D") and child.Part0 and child.Part1 then
+                    local exists = false
+                    for _, j in ipairs(E.joints) do
+                        if j.inst == child then exists = true break end
+                    end
+                    if not exists then
+                        table.insert(E.joints, {
+                            t = "m6d", 
+                            inst = child, 
+                            name = child.Name,
+                            origC0 = child.C0, 
+                            origC1 = child.C1
+                        })
+                        motorParts[child.Part0] = true
+                        motorParts[child.Part1] = true
+                        print("[Snow] Found Motor6D in "..loc.Name..": "..child.Name)
+                    end
+                end
+            end
+        end
+    end
+    
+    -- Método 3: Parts soltas (não conectadas por Motor6D)
+    if #E.joints == 0 then
+        print("[Snow] No Motor6D found, scanning loose parts...")
+        for i = 1, #descendants do
+            local c = descendants[i]
+            if c:IsA("BasePart") and not c:IsA("Terrain") then
                 if not E.isLocalChar(c) then
+                    local partName = c.Name.."_"..tostring(i)
                     table.insert(E.joints, {
-                        t="part", 
-                        inst=c, 
-                        name=c.Name.."_"..tostring(c:GetDebugId()):sub(1,4),
-                        origCF=c.CFrame:Clone()
+                        t = "part", 
+                        inst = c, 
+                        name = partName,
+                        origCF = c.CFrame
                     })
                 end
             end
-        end)
+        end
     end
     
-    -- Se target é uma BasePart solta
+    -- Método 4: Se target é uma BasePart solta
     if tgt:IsA("BasePart") and not E.isLocalChar(tgt) then
         local found = false
-        for _,j in ipairs(E.joints) do 
+        for _, j in ipairs(E.joints) do 
             if j.inst == tgt then 
                 found = true 
                 break 
@@ -216,15 +277,35 @@ function E.scan(tgt)
         end
         if not found then
             table.insert(E.joints, {
-                t="part",
-                inst=tgt,
-                name=tgt.Name.."_root",
-                origCF=tgt.CFrame:Clone()
+                t = "part",
+                inst = tgt,
+                name = tgt.Name.."_root",
+                origCF = tgt.CFrame
             })
         end
     end
     
-    print("[Snow] Scanned: "..#E.joints.." joints in "..tgt.Name)
+    -- GUI elements
+    for i = 1, #descendants do
+        local c = descendants[i]
+        if c:IsA("GuiObject") then
+            table.insert(E.joints, {
+                t = "gui", 
+                inst = c, 
+                name = c.Name.."_g",
+                oP = c.Position, 
+                oS = c.Size, 
+                oR = c.Rotation
+            })
+        end
+    end
+    
+    print("[Snow] ✅ Scan complete: "..#E.joints.." joints found in "..tgt.Name)
+    
+    -- Atualiza a lista de joints na UI
+    if S.updJ then
+        pcall(S.updJ)
+    end
 end
 
 -- Captura estado atual dos joints
@@ -971,63 +1052,61 @@ function S.TB(txt,ord,col,cb)
 end
 
 -- SELECT
-S.selBtn=S.TB("🎯Select",1,C.purple,nil)
-S.selActive=false S.selC=nil
--- Substitua o bloco do SELECT (dentro de S.selBtn.MouseButton1Click) por:
-
 S.selBtn.MouseButton1Click:Connect(function()
     if S.selActive then 
-        S.selActive=false 
-        if S.selC then pcall(function() S.selC:Disconnect() end) S.selC=nil end 
-        S.selBtn.Text="🎯Select" 
-        S.selBtn.BackgroundColor3=C.purple 
+        S.selActive = false 
+        if S.selC then pcall(function() S.selC:Disconnect() end) S.selC = nil end 
+        S.selBtn.Text = "🎯Select" 
+        S.selBtn.BackgroundColor3 = C.purple 
         return 
     end
-    S.selActive=true 
-    S.selBtn.Text="🎯Click..." 
-    S.selBtn.BackgroundColor3=C.orange
-    S.selC=S.Mouse.Button1Down:Connect(function()
-        pcall(function()
-            local h=S.Mouse.Target
-            if h then
-                -- CORREÇÃO: Encontrar o Model/Rig correto
-                local t = h
-                -- Procura um Model que contenha Humanoid ou Motor6D
-                local found = false
-                local current = h
-                for i=1,10 do
-                    if current.Parent == nil or current.Parent == game or current.Parent == workspace then
+    S.selActive = true 
+    S.selBtn.Text = "🎯Click..." 
+    S.selBtn.BackgroundColor3 = C.orange
+    S.selC = S.Mouse.Button1Down:Connect(function()
+        local h = S.Mouse.Target
+        if h then
+            -- Encontrar o Model/Rig correto
+            local t = h
+            local current = h
+            
+            -- Sobe na hierarquia procurando um Model com Humanoid ou Motor6D
+            for i = 1, 10 do
+                if current.Parent == nil or current.Parent == game then
+                    break
+                end
+                if current:IsA("Model") then
+                    local hasHumanoid = current:FindFirstChildOfClass("Humanoid")
+                    local hasMotor = current:FindFirstDescendantWhichIsA("Motor6D")
+                    if hasHumanoid or hasMotor then
+                        t = current
                         break
                     end
-                    current = current.Parent
-                    if current:IsA("Model") then
-                        -- Verifica se é um rig (tem Humanoid ou Motor6D)
-                        if current:FindFirstChildOfClass("Humanoid") or current:FindFirstDescendantWhichIsA("Motor6D") then
-                            t = current
-                            found = true
-                            break
-                        end
-                    end
                 end
-                -- Se não encontrou rig, usa a part ou seu parent imediato
-                if not found then
-                    if h.Parent and h.Parent:IsA("Model") and h.Parent ~= workspace then
-                        t = h.Parent
-                    else
-                        t = h
-                    end
-                end
-                
-                E.scan(t) 
-                local nm = t.Name 
-                S.selBtn.Text="🎯"..nm:sub(1,math.min(#nm,10))
-                S.selBtn.BackgroundColor3=C.green
-                -- Atualiza lista de joints
-                pcall(S.updJ)
+                current = current.Parent
             end
-        end)
-        S.selActive=false 
-        if S.selC then pcall(function() S.selC:Disconnect() end) S.selC=nil end
+            
+            -- Se não encontrou rig, usa o parent Model mais próximo
+            if t == h and h.Parent and h.Parent:IsA("Model") and h.Parent ~= workspace then
+                t = h.Parent
+            end
+            
+            -- Scan do target
+            E.scan(t)
+            
+            -- Atualiza o botão
+            local nm = t.Name 
+            S.selBtn.Text = "🎯"..nm:sub(1, math.min(#nm, 8))
+            
+            if #E.joints > 0 then
+                S.selBtn.BackgroundColor3 = C.green
+            else
+                S.selBtn.BackgroundColor3 = C.red
+            end
+        end
+        
+        S.selActive = false 
+        if S.selC then pcall(function() S.selC:Disconnect() end) S.selC = nil end
     end)
 end)
 
