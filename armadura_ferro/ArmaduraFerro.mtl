@@ -1,0 +1,23 @@
+newmtl steel
+Kd 0.7700 0.7850 0.8200
+Ks 0.900 0.900 0.900
+Ns 80
+map_Kd tex_steel.jpg
+
+newmtl gold
+Kd 0.8300 0.6600 0.2300
+Ks 0.950 0.950 0.950
+Ns 90
+map_Kd tex_gold.jpg
+
+newmtl hair
+Kd 0.8200 0.0800 0.1000
+Ks 0.050 0.050 0.050
+Ns 12
+map_Kd tex_hair.jpg
+
+newmtl leather
+Kd 0.0700 0.0600 0.0600
+Ks 0.020 0.020 0.020
+Ns 8
+
